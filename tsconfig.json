@@ -3,7 +3,7 @@
     "target": "es5",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
@@ -24,7 +24,8 @@
       "@app/*": ["./app/*"],
       "@types": ["./app/types.ts"],
       "@public/*": ["./public/*"],
-      "@css": ["./app/globals.css"]
+      "@css": ["./app/globals.css"],
+      "@hooks/*": ["./hooks/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
