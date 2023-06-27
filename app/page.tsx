@@ -9,6 +9,7 @@ interface PageProps {}
 export default function Page({}: PageProps): React.ReactNode {
   const [action, setAction] = useState<Rough.DrawFunc>(() => drawLine);
   const { canvasRef, mouseDownHandler } = useCanvas(action);
+  // Needed because Next.js doesn't load window on startup, presumably because of pre-rendering
   const windowSize = useWindowResize();
 
   const handleAction = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,8 +48,8 @@ export default function Page({}: PageProps): React.ReactNode {
           <canvas
             onMouseDown={mouseDownHandler}
             ref={canvasRef}
-            width={windowSize?.innerWidth}
-            height={windowSize?.innerHeight}
+            width={windowSize.innerWidth}
+            height={windowSize.innerHeight}
             className="rounded-md border border-black"
           />
         </div>

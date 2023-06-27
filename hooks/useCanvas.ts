@@ -23,7 +23,9 @@ export const useCanvas = (onDraw: Rough.DrawFunc) => {
     e: React.MouseEvent<HTMLCanvasElement, MouseEvent>
   ) => {
     setMouseDown(true);
-    startingPoint.current = computePointInCanvas(e.nativeEvent)!;
+    const point = computePointInCanvas(e.nativeEvent);
+    if (!point) return;
+    startingPoint.current = point;
   };
 
   const mouseUpHandler = () => {
@@ -36,15 +38,15 @@ export const useCanvas = (onDraw: Rough.DrawFunc) => {
       /**
        * The handler needs the recent state of mouseDown as it influences it
        * mouseDown needs to go in the dependency array
-       * as useEffect is only ran once when the array is empty
+       * as useEffect is only ran one time on mount since the array is empty
        * meaning mouseDown would always be false otherwise
        */
-      if (!mouseDown) return;
+      if (!mouseDown || !canvasRef.current) return;
       const currentPoint = computePointInCanvas(e);
-      const ctx = canvasRef.current?.getContext("2d");
+      const ctx = canvasRef.current.getContext("2d");
       if (!ctx || !currentPoint) return;
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      const rc = rough.canvas(canvasRef.current!);
+      const rc = rough.canvas(canvasRef.current);
       onDraw({
         rc,
         ctx,
