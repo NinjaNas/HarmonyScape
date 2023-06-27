@@ -25,7 +25,8 @@
       "@types": ["./app/types.ts"],
       "@public/*": ["./public/*"],
       "@css": ["./app/globals.css"],
-      "@hooks/*": ["./hooks/*"]
+      "@hooks/*": ["./hooks/*"],
+      "@functions/*": ["./functions/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
