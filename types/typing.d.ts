@@ -7,17 +7,30 @@ type Point = { x: number; y: number };
 type WindowSize = { innerWidth: number; innerHeight: number };
 
 declare namespace Rough {
-  type Draw = {
+  type DrawLine = {
     rc: import("roughjs/bin/canvas").RoughCanvas;
     ctx?: CanvasRenderingContext2D;
     currentPoint: Point;
     startingPoint: Point | null;
     gen: import("roughjs/bin/generator").RoughGenerator;
+    seed?: number;
+    stroke?: string;
+    strokeWidth?: number;
   };
-  type DrawFunc = ({
-    rc,
-    currentPoint,
-    startingPoint,
-    gen,
-  }: Rough.Draw) => void;
+
+  type DrawLineProps = {
+    action;
+    startPoint;
+    currX;
+    currY;
+    seed;
+    stroke;
+    strokeWidth;
+  };
+
+  type DrawLineFunc = ({}: DrawLine) => DrawLineRet;
+
+  type Placeholder = { action: test };
+  type Action = DrawLineFunc;
+  type ActionHistory = DrawLineProps | Placeholder;
 }
