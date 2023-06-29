@@ -54,10 +54,11 @@ export const useCanvas = (onAction: Rough.Action) => {
   const streamActions = (rc: RoughCanvas) => {
     if (!canvasRef.current) return;
     for (let elt of history) {
+      let drawable;
       switch (elt.action) {
         case "line":
           let e = elt as Rough.DrawLineProps;
-          let drawable = gen.line(
+          drawable = gen.line(
             e.startPoint.x,
             e.startPoint.y,
             e.currX,
@@ -68,8 +69,9 @@ export const useCanvas = (onAction: Rough.Action) => {
               stroke: e.stroke,
             }
           );
-          rc.draw(drawable);
+          break;
       }
+      rc.draw(drawable);
     }
   };
 
