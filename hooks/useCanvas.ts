@@ -197,26 +197,22 @@ export const useCanvas = (onAction: Rough.Action) => {
     const onPressedHandler = (e: KeyboardEvent) => {
       console.log("onpress");
       // undo and redo
-      if (e.ctrlKey && e.key === "z") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         index > 0 && setIndex((i) => i - 1);
       } else if (e.ctrlKey && e.key === "y") {
         index < history.length && setIndex((i) => i + 1);
-      }
-    };
-    const onReleasedHandler = (e: KeyboardEvent) => {
-      console.log("onReleased");
-      if (e.ctrlKey && (e.key === "z" || e.key === "y")) {
-        if (!roughRef.current) return;
-        streamActions(roughRef.current);
+      } else if (e.metaKey && e.shiftKey && e.key === "z") {
+        index < history.length && setIndex((i) => i + 1);
       }
     };
 
+    if (!roughRef.current) return;
+    streamActions(roughRef.current);
+
     window.addEventListener("keydown", onPressedHandler);
-    window.addEventListener("keyup", onReleasedHandler);
 
     return () => {
       window.removeEventListener("keydown", onPressedHandler);
-      window.removeEventListener("keyup", onReleasedHandler);
     };
   }, [index]);
 
