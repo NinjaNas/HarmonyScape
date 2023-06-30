@@ -139,7 +139,7 @@ export const useCanvas = (onAction: Rough.Action) => {
       window.removeEventListener("mouseup", mouseUpHandler);
       window.removeEventListener("resize", resizeHandler);
     };
-  }, [mouseDown]);
+  }, [mouseDown, index]);
 
   // useEffect(() => {
   //   const onPressedHandler = (e: KeyComboEvent<KeyboardEvent>) => {
