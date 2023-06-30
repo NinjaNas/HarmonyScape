@@ -4,12 +4,14 @@ import { useWindowResize } from "@hooks/useWindowResize";
 import { drawLine, drawLine2 } from "@functions/canvasFunctions";
 
 export default function Canvas(): React.ReactNode {
+  console.log("render canvas component");
   const [action, setAction] = useState<Rough.Action>(() => drawLine);
   const { canvasRef, mouseDownHandler } = useCanvas(action);
   // Needed because Next.js doesn't load window on startup, presumably because of pre-rendering
   const windowSize = useWindowResize();
 
-  const handleAction = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const actionHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("action");
     if (e.target.value === "draw") {
       setAction(() => drawLine);
     } else if (e.target.value === "draw2") {
@@ -18,6 +20,7 @@ export default function Canvas(): React.ReactNode {
   };
 
   if (windowSize) {
+    console.log("window load");
     return (
       <>
         <div className="fixed">
@@ -27,7 +30,7 @@ export default function Canvas(): React.ReactNode {
             name="action"
             value="draw"
             checked={action === drawLine}
-            onChange={handleAction}
+            onChange={actionHandler}
           />
           <label>draw</label>
           <input
@@ -36,7 +39,7 @@ export default function Canvas(): React.ReactNode {
             name="action"
             value="draw2"
             checked={action === drawLine2}
-            onChange={handleAction}
+            onChange={actionHandler}
           />
           <label>draw2</label>
         </div>

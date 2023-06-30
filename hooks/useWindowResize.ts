@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from "react";
 
 export const useWindowResize = () => {
+  console.log("render window resize");
   const [windowSize, setWindowSize] = useState<null | WindowSize>(null);
   /**
    * set window before paint, runs one time on mount,

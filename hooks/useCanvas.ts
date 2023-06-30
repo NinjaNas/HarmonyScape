@@ -4,6 +4,7 @@ import rough from "roughjs/bundled/rough.esm";
 import { KeyComboEvent, bindKeyCombo, unbindKeyCombo } from "@rwh/keystrokes";
 
 export const useCanvas = (onAction: Rough.Action) => {
+  console.log("render canvas ref");
   const [history, setHistory] = useState<Rough.ActionHistory[]>([]);
   const [index, setIndex] = useState<number>(0);
 
@@ -21,6 +22,7 @@ export const useCanvas = (onAction: Rough.Action) => {
   const mouseDownHandler = (
     e: React.MouseEvent<HTMLCanvasElement, MouseEvent>
   ) => {
+    console.log("mousedown");
     const btn = e.button;
     // left: 0, middle: 1, right: 2
     switch (btn) {
@@ -38,6 +40,9 @@ export const useCanvas = (onAction: Rough.Action) => {
   };
 
   const mouseUpHandler = () => {
+    console.log("mouseup");
+    // prevent rerender if mouseDown is not already true
+    if (!mouseDown) return;
     setMouseDown(false);
     startingPoint.current = null;
 
@@ -52,12 +57,14 @@ export const useCanvas = (onAction: Rough.Action) => {
 
   // persist canvas state on resize
   const resizeHandler = () => {
+    console.log("resize");
     if (!roughRef.current) return;
     streamActions(roughRef.current);
   };
 
   // render all previous actions
   const streamActions = (rc: RoughCanvas) => {
+    console.log("streamActions");
     if (!canvasRef.current) return;
 
     const ctx = canvasRef.current.getContext("2d");
@@ -90,6 +97,7 @@ export const useCanvas = (onAction: Rough.Action) => {
 
   // Compute relative points in canvas
   const computePointInCanvas = (e: MouseEvent) => {
+    console.log("compute");
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -107,11 +115,14 @@ export const useCanvas = (onAction: Rough.Action) => {
      * as useEffect is only ran one time on mount since the array is empty
      * meaning mouseDown would always be false otherwise
      */
+    console.log("effect up/move");
+    if (!mouseDown || !canvasRef.current) return;
+
     const mouseMoveHandler = (e: MouseEvent) => {
-      if (!mouseDown || !canvasRef.current) return;
+      console.log("mousemove");
 
       const currentPoint = computePointInCanvas(e);
-      const ctx = canvasRef.current.getContext("2d");
+      const ctx = canvasRef.current!.getContext("2d");
       if (!ctx || !currentPoint) return;
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
@@ -129,17 +140,21 @@ export const useCanvas = (onAction: Rough.Action) => {
     };
 
     // setup Mouse Handler
-    canvasRef.current?.addEventListener("mousemove", mouseMoveHandler);
+    canvasRef.current.addEventListener("mousemove", mouseMoveHandler);
     window.addEventListener("mouseup", mouseUpHandler);
-    window.addEventListener("resize", resizeHandler);
 
     // cleanup Mouse Handler before unmount and rerender if dependencies change
     return () => {
-      canvasRef.current?.removeEventListener("mousemove", mouseMoveHandler);
+      canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
       window.removeEventListener("mouseup", mouseUpHandler);
-      window.removeEventListener("resize", resizeHandler);
     };
   }, [mouseDown, index]);
+
+  useEffect(() => {
+    console.log("effect window");
+    window.addEventListener("resize", resizeHandler);
+    return () => window.removeEventListener("resize", resizeHandler);
+  }, [index]);
 
   // useEffect(() => {
   //   const onPressedHandler = (e: KeyComboEvent<KeyboardEvent>) => {
@@ -178,7 +193,9 @@ export const useCanvas = (onAction: Rough.Action) => {
   // }, [index]);
 
   useEffect(() => {
+    console.log("effect undo/redo");
     const onPressedHandler = (e: KeyboardEvent) => {
+      console.log("onpress");
       // undo and redo
       if (e.ctrlKey && e.key === "z") {
         index > 0 && setIndex((i) => i - 1);
@@ -187,11 +204,13 @@ export const useCanvas = (onAction: Rough.Action) => {
       }
     };
     const onReleasedHandler = (e: KeyboardEvent) => {
-      if (!roughRef.current) return;
-      streamActions(roughRef.current);
+      console.log("onReleased");
+      if (e.ctrlKey && (e.key === "z" || e.key === "y")) {
+        if (!roughRef.current) return;
+        streamActions(roughRef.current);
+      }
     };
 
-    console.log(index);
     window.addEventListener("keydown", onPressedHandler);
     window.addEventListener("keyup", onReleasedHandler);
 
