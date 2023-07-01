@@ -1,15 +1,13 @@
 export function drawLine({
   rc,
   gen,
-  startingPoint,
+  startPoint,
   currentPoint,
   seed = getRandomInt(1, 2 ** 31),
   stroke = "#000",
   strokeWidth = 5,
 }: Rough.DrawLine) {
   const { x: currX, y: currY } = currentPoint;
-  // startingPoint can be null, if it is set currentPoint as the starting point
-  let startPoint = startingPoint ?? currentPoint;
 
   const line = gen.line(startPoint.x, startPoint.y, currX, currY, {
     seed,
@@ -22,16 +20,17 @@ export function drawLine({
   return {
     action: "line",
     startPoint,
-    currX,
-    currY,
-    seed,
-    stroke,
-    strokeWidth,
+    currentPoint,
+    options: {
+      seed,
+      stroke,
+      strokeWidth,
+    },
   };
 }
 
 export function drawLine2({
-  startingPoint,
+  startPoint,
   currentPoint,
   rc,
   gen,
@@ -40,8 +39,6 @@ export function drawLine2({
   strokeWidth = 10,
 }: Rough.DrawLine) {
   const { x: currX, y: currY } = currentPoint;
-  // startingPoint can be null, if it is set currentPoint as the starting point
-  let startPoint = startingPoint ?? currentPoint;
 
   const line = gen.line(startPoint.x, startPoint.y, currX, currY, {
     seed,
@@ -54,11 +51,12 @@ export function drawLine2({
   return {
     action: "line",
     startPoint,
-    currX,
-    currY,
-    seed,
-    stroke,
-    strokeWidth,
+    currentPoint,
+    options: {
+      seed,
+      stroke,
+      strokeWidth,
+    },
   };
 }
 
