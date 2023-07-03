@@ -7,6 +7,9 @@ export const useCanvas = (onAction: Rough.Action) => {
   console.log("render canvas ref");
   const [history, setHistory] = useState<Rough.ActionHistory[]>([]);
   const [index, setIndex] = useState<number>(0);
+  const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
+  const [scrollOffset, setScrollOffset] = useState<Point>({ x: 0, y: 0 });
+  const [scale, setScale] = useState<number>(1);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const roughRef = useRef<null | RoughCanvas>(null);
@@ -38,28 +41,69 @@ export const useCanvas = (onAction: Rough.Action) => {
         break;
     }
   };
+  const onWheelHandler = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (e.ctrlKey) {
+      const cursor = computePointInCanvas(e.nativeEvent);
+      if (!cursor) return;
+      if (!canvasRef.current) return;
+      const ctx = canvasRef.current.getContext("2d");
+      if (!ctx) return;
 
-  const mouseUpHandler = () => {
-    console.log("mouseup");
-    // prevent rerender if mouseDown is not already true
-    if (!mouseDown) return;
-    setMouseDown(false);
-    startingPoint.current = null;
+      let zoom: number;
 
-    // add current action to history
-    if (!currentActionRef.current) return;
-    setHistory((prevHistory) => {
-      return [...prevHistory.slice(0, index), currentActionRef.current!];
-    });
+      if (scale <= 0.2) {
+        zoom = e.deltaY > 0 ? 1 : 1.1;
+      } else if (scale >= 5) {
+        zoom = e.deltaY > 0 ? 0.9 : 1;
+      } else {
+        zoom = e.deltaY > 0 ? 0.9 : 1.1;
+      }
 
-    setIndex((i) => i + 1);
-  };
+      ctx.clearRect(
+        origin.x,
+        origin.y,
+        window.innerWidth / scale,
+        window.innerHeight / scale
+      );
 
-  // persist canvas state on resize
-  const resizeHandler = () => {
-    console.log("resize");
-    if (!roughRef.current) return;
-    streamActions(roughRef.current);
+      // move to current origin
+      ctx.translate(origin.x, origin.y);
+
+      // calculate offset to keep cursor at the same coords in the new canvas
+      // delta = -(cursor location in new scale - cursor location in old scale +
+      // scrollOffset in new scale - scrollOffset in old scale)
+      origin.x -=
+        cursor.x0 / (scale * zoom) -
+        cursor.x0 / scale +
+        scrollOffset.x / (scale * zoom) -
+        scrollOffset.x / scale;
+      origin.y -=
+        cursor.y0 / (scale * zoom) -
+        cursor.y0 / scale +
+        scrollOffset.y / (scale * zoom) -
+        scrollOffset.y / scale;
+
+      // update state
+      setOrigin({ x: origin.x, y: origin.y });
+      setScale((s) => s * zoom);
+
+      // if zoom = .5 then canvas size is doubled making objects appear half as large
+      // if zoom = 2 them canvas size is halved making objects appear double in size
+      ctx.scale(zoom, zoom);
+
+      // if canvas corner and origin is (0,0) and translate(100, 100)
+      // then after canvas corner is (-100, -100) and (100, 100) becomes the origin (0,0)
+      // translates canvas corner so cursor is on the same coord in the new canvas
+      ctx.translate(-origin.x, -origin.y);
+
+      if (!roughRef.current) return;
+      streamActions(roughRef.current);
+    } else {
+      if (!canvasRef.current) return;
+      const ctx = canvasRef.current.getContext("2d");
+      if (!ctx) return;
+      setScrollOffset(({ x, y }) => ({ x: x - e.deltaX, y: y - e.deltaY }));
+    }
   };
 
   // render all previous actions
@@ -69,29 +113,38 @@ export const useCanvas = (onAction: Rough.Action) => {
 
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.clearRect(
+      origin.x,
+      origin.y,
+      window.innerWidth / scale,
+      window.innerHeight / scale
+    );
 
     for (let elt of history.slice(0, index)) {
       let drawable;
 
+      // Move origin point to offset
+      ctx.translate(scrollOffset.x, scrollOffset.y);
+
       switch (elt.action) {
         case "line":
-          let e = elt as Rough.DrawLineProps;
+          let { startPoint, currentPoint, options } =
+            elt as Rough.DrawLineProps;
+
           drawable = gen.line(
-            e.startPoint.x,
-            e.startPoint.y,
-            e.currX,
-            e.currY,
-            {
-              seed: e.seed,
-              strokeWidth: e.strokeWidth,
-              stroke: e.stroke,
-            }
+            startPoint.x,
+            startPoint.y,
+            currentPoint.x,
+            currentPoint.y,
+            options
           );
+
           break;
       }
-
       rc.draw(drawable);
+
+      // Reset origin point to 0,0
+      ctx.translate(-scrollOffset.x, -scrollOffset.y);
     }
   };
 
@@ -102,10 +155,16 @@ export const useCanvas = (onAction: Rough.Action) => {
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    return { x, y };
+    // implies origin is (0, 0) and scale is 1
+    // scrollOffset and origin not affected by scale while drawing?
+    // however, mouse position on the screen and window is affected by scale
+    const x0 = -scrollOffset.x + e.clientX - rect.left;
+    const y0 = -scrollOffset.y + e.clientY - rect.top;
+    const x = origin.x - scrollOffset.x + (e.clientX - rect.left) / scale;
+    const y = origin.y - scrollOffset.y + (e.clientY - rect.top) / scale;
+    console.log(`${origin.x}, ${origin.y}`);
+    console.log(`${x}, ${y}, ${e.clientX}, ${e.clientY}`);
+    return { x0, y0, x, y };
   };
 
   useEffect(() => {
@@ -121,22 +180,52 @@ export const useCanvas = (onAction: Rough.Action) => {
     const mouseMoveHandler = (e: MouseEvent) => {
       console.log("mousemove");
 
-      const currentPoint = computePointInCanvas(e);
+      let currentPoint = computePointInCanvas(e);
       const ctx = canvasRef.current!.getContext("2d");
       if (!ctx || !currentPoint) return;
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      ctx.clearRect(
+        origin.x,
+        origin.y,
+        window.innerWidth / scale,
+        window.innerHeight / scale
+      );
 
       roughRef.current = rough.canvas(canvasRef.current);
       if (!roughRef.current) return;
       streamActions(roughRef.current);
 
+      // startingPoint can be null, if it is set currentPoint as the starting point
+      let startPoint = startingPoint.current ?? currentPoint;
+
+      // Move origin point to offset
+      ctx.translate(scrollOffset.x, scrollOffset.y);
+
       currentActionRef.current = onAction({
         rc: roughRef.current,
         ctx,
         currentPoint,
-        startingPoint: startingPoint.current,
+        startPoint,
         gen,
       });
+
+      // Reset origin point to 0,0
+      ctx.translate(-scrollOffset.x, -scrollOffset.y);
+    };
+
+    const mouseUpHandler = () => {
+      console.log("mouseup");
+      // prevent rerender if mouseDown is not already true
+      if (!mouseDown) return;
+      setMouseDown(false);
+      startingPoint.current = null;
+
+      // add current action to history
+      if (!currentActionRef.current) return;
+      setHistory((prevHistory) => {
+        return [...prevHistory.slice(0, index), currentActionRef.current!];
+      });
+
+      setIndex((i) => i + 1);
     };
 
     // setup Mouse Handler
@@ -148,13 +237,40 @@ export const useCanvas = (onAction: Rough.Action) => {
       canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
       window.removeEventListener("mouseup", mouseUpHandler);
     };
-  }, [mouseDown, index]);
+  }, [mouseDown, index, scale, origin]);
 
   useEffect(() => {
     console.log("effect window");
+
+    // persist canvas state on resize
+    const resizeHandler = () => {
+      console.log("resize");
+      if (!canvasRef.current) return;
+      const ctx = canvasRef.current.getContext("2d");
+      if (!ctx) return;
+      ctx.scale(scale, scale);
+      ctx.translate(-origin.x, -origin.y);
+      if (!roughRef.current) return;
+      streamActions(roughRef.current);
+    };
+    const wheelHandler = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+      }
+    };
     window.addEventListener("resize", resizeHandler);
-    return () => window.removeEventListener("resize", resizeHandler);
-  }, [index]);
+    window.addEventListener("wheel", wheelHandler, { passive: false });
+    return () => {
+      window.removeEventListener("resize", resizeHandler);
+      window.removeEventListener("wheel", wheelHandler);
+    };
+  }, [index, scrollOffset, scale, origin]);
+
+  useEffect(() => {
+    console.log("effect scroll redraw");
+    if (!roughRef.current) return;
+    streamActions(roughRef.current);
+  }, [scrollOffset, scale, origin, index]);
 
   // useEffect(() => {
   //   const onPressedHandler = (e: KeyComboEvent<KeyboardEvent>) => {
@@ -172,18 +288,14 @@ export const useCanvas = (onAction: Rough.Action) => {
   //     console.log(index);
   //   };
 
-  //   const onReleasedHandler = (e: KeyComboEvent<KeyboardEvent>) => {
-  //     if (!roughRef.current) return;
-  //     streamActions(roughRef.current);
-  //   };
+  //   if (!roughRef.current) return;
+  //   streamActions(roughRef.current);
 
   //   bindKeyCombo("control+z", {
   //     onPressed: onPressedHandler,
-  //     onReleased: onReleasedHandler,
   //   });
   //   bindKeyCombo("control+y", {
   //     onPressed: onPressedHandler,
-  //     onReleased: onReleasedHandler,
   //   });
 
   //   return () => {
@@ -214,7 +326,7 @@ export const useCanvas = (onAction: Rough.Action) => {
     return () => {
       window.removeEventListener("keydown", onPressedHandler);
     };
-  }, [index]);
+  }, [index, origin, scale, scrollOffset]);
 
-  return { canvasRef, mouseDownHandler };
+  return { canvasRef, mouseDownHandler, onWheelHandler };
 };

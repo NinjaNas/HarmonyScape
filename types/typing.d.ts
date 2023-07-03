@@ -11,7 +11,7 @@ declare namespace Rough {
     rc: import("roughjs/bin/canvas").RoughCanvas;
     ctx?: CanvasRenderingContext2D;
     currentPoint: Point;
-    startingPoint: Point | null;
+    startPoint: Point;
     gen: import("roughjs/bin/generator").RoughGenerator;
     seed?: number;
     stroke?: string;
@@ -19,18 +19,19 @@ declare namespace Rough {
   };
 
   type DrawLineProps = {
-    action;
-    startPoint;
-    currX;
-    currY;
-    seed;
-    stroke;
-    strokeWidth;
+    action: string;
+    startPoint: Point;
+    currentPoint: Point;
+    options: {
+      seed: number;
+      stroke: string;
+      strokeWidth: number;
+    };
   };
 
   type DrawLineFunc = ({}: DrawLine) => DrawLineRet;
 
-  type Placeholder = { action: test };
+  type Placeholder = { action: string; startPoint: Point };
   type Action = DrawLineFunc;
   type ActionHistory = DrawLineProps | Placeholder;
 }

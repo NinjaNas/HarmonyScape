@@ -6,7 +6,7 @@ import { drawLine, drawLine2 } from "@functions/canvasFunctions";
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
   const [action, setAction] = useState<Rough.Action>(() => drawLine);
-  const { canvasRef, mouseDownHandler } = useCanvas(action);
+  const { canvasRef, mouseDownHandler, onWheelHandler } = useCanvas(action);
   // Needed because Next.js doesn't load window on startup, presumably because of pre-rendering
   const windowSize = useWindowResize();
 
@@ -49,6 +49,7 @@ export default function Canvas(): React.ReactNode {
             ref={canvasRef}
             width={windowSize.innerWidth}
             height={windowSize.innerHeight}
+            onWheel={onWheelHandler}
             className="rounded-md border border-black"
           />
         </div>
