@@ -10,8 +10,6 @@
     "export": "npx serve@latest out"
   },
   "dependencies": {
-    "@rwh/keystrokes": "^1.0.0-beta.12",
-    "@rwh/react-keystrokes": "^1.0.0-beta.12",
     "autoprefixer": "10.4.14",
     "next": "13.4.8",
     "postcss": "8.4.24",
