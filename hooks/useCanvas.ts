@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import rough from "roughjs/bundled/rough.esm";
-import { KeyComboEvent, bindKeyCombo, unbindKeyCombo } from "@rwh/keystrokes";
 
 export const useCanvas = (onAction: Rough.Action) => {
   console.log("render canvas ref");
@@ -65,13 +64,6 @@ export const useCanvas = (onAction: Rough.Action) => {
         // if past max scale, stop zoom else zoom in
         zoom = scale >= MAX_SCALE ? 1 : ZOOM_IN_FACTOR;
       }
-
-      ctxRef.current.clearRect(
-        origin.x,
-        origin.y,
-        window.innerWidth / scale,
-        window.innerHeight / scale
-      );
 
       // move to current origin
       ctxRef.current.translate(origin.x, origin.y);
@@ -256,37 +248,6 @@ export const useCanvas = (onAction: Rough.Action) => {
     console.log("effect redraw");
     streamActions();
   }, [history, scale, origin, index]);
-
-  // useEffect(() => {
-  //   const onPressedHandler = (e: KeyComboEvent<KeyboardEvent>) => {
-  //     // undo and redo
-  //     if (!roughRef.current) return;
-  //     console.log(e.keyCombo);
-  //     switch (e.keyCombo) {
-  //       case "control+z":
-  //         index > 0 && setIndex((i) => i - 1);
-  //         break;
-  //       case "control+y":
-  //         index < history.length && setIndex((i) => i + 1);
-  //         break;
-  //     }
-  //     console.log(index);
-  //   };
-
-  //   streamActions();
-
-  //   bindKeyCombo("control+z", {
-  //     onPressed: onPressedHandler,
-  //   });
-  //   bindKeyCombo("control+y", {
-  //     onPressed: onPressedHandler,
-  //   });
-
-  //   return () => {
-  //     unbindKeyCombo("control+z");
-  //     unbindKeyCombo("control+y");
-  //   };
-  // }, [index]);
 
   // undo/redo
   useEffect(() => {
