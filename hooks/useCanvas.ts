@@ -18,11 +18,13 @@ export const useCanvas = (onAction: Rough.Action) => {
   const [mouseDown, setMouseDown] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<null | CanvasRenderingContext2D>(null);
   const roughRef = useRef<null | RoughCanvas>(null);
   const currentActionRef = useRef<null | Rough.ActionHistory>(null);
   const startingPointRef = useRef<null | Point>(null);
 
   const gen = rough.generator();
+
   console.log(history);
   console.log(index);
 
@@ -47,13 +49,11 @@ export const useCanvas = (onAction: Rough.Action) => {
 
   // scroll and ctrl+wheel zoom
   const onWheelHandler = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !ctxRef.current) return;
     // if ctrl+wheel, else wheel
     if (e.ctrlKey) {
       const cursor = computePointInCanvas(e.nativeEvent);
       if (!cursor) return;
-      if (!canvasRef.current) return;
-      const ctx = canvasRef.current.getContext("2d");
-      if (!ctx) return;
 
       let zoom: number;
       const isScrollingDown = e.deltaY > 0;
@@ -66,7 +66,7 @@ export const useCanvas = (onAction: Rough.Action) => {
         zoom = scale >= MAX_SCALE ? 1 : ZOOM_IN_FACTOR;
       }
 
-      ctx.clearRect(
+      ctxRef.current.clearRect(
         origin.x,
         origin.y,
         window.innerWidth / scale,
@@ -74,7 +74,7 @@ export const useCanvas = (onAction: Rough.Action) => {
       );
 
       // move to current origin
-      ctx.translate(origin.x, origin.y);
+      ctxRef.current.translate(origin.x, origin.y);
 
       // calculate offset to keep cursor at the same coords in the new canvas
       // delta = -(cursor location in new scale - cursor location in old scale +
@@ -88,17 +88,14 @@ export const useCanvas = (onAction: Rough.Action) => {
 
       // if zoom = .5 then canvas size is doubled making objects appear half as large
       // if zoom = 2 them canvas size is halved making objects appear double in size
-      ctx.scale(zoom, zoom);
+      ctxRef.current.scale(zoom, zoom);
 
       // if canvas corner and origin is (0,0) and translate(100, 100)
       // then after canvas corner is (-100, -100) and (100, 100) becomes the origin (0,0)
       // translates canvas corner so cursor is on the same coord in the new canvas
-      ctx.translate(-origin.x, -origin.y);
+      ctxRef.current.translate(-origin.x, -origin.y);
     } else {
-      if (!canvasRef.current) return;
-      const ctx = canvasRef.current.getContext("2d");
-      if (!ctx) return;
-      ctx.translate(-e.deltaX, -e.deltaY);
+      ctxRef.current.translate(-e.deltaX, -e.deltaY);
       setOrigin(({ x, y }) => ({ x: x + e.deltaX, y: y + e.deltaY }));
     }
   };
@@ -106,16 +103,10 @@ export const useCanvas = (onAction: Rough.Action) => {
   // render all previous actions (origin/scale/history/index)
   const streamActions = () => {
     console.log("streamActions");
-    if (!canvasRef.current) return;
-
-    const ctx = canvasRef.current.getContext("2d");
-    if (!ctx) return;
-
-    const rc = roughRef.current;
-    if (!rc) return;
+    if (!ctxRef.current || !roughRef.current) return;
 
     // clear canvas
-    ctx.clearRect(
+    ctxRef.current.clearRect(
       origin.x,
       origin.y,
       window.innerWidth / scale,
@@ -141,17 +132,15 @@ export const useCanvas = (onAction: Rough.Action) => {
 
           break;
       }
-      rc.draw(drawable);
+      roughRef.current.draw(drawable);
     }
   };
 
   // Compute relative points in canvas (origin/scale)
   const computePointInCanvas = (e: MouseEvent) => {
-    console.log("compute");
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvasRef.current) return;
 
-    const rect = canvas.getBoundingClientRect();
+    const rect = canvasRef.current.getBoundingClientRect();
     // implies origin is (0, 0) and scale is 1
     // mouse position on the screen and window is affected by scale
     const x0 = e.clientX - rect.left;
@@ -178,28 +167,40 @@ export const useCanvas = (onAction: Rough.Action) => {
     };
   }, []);
 
+  // update canvasRefs upon mouseDown
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    ctxRef.current = canvasRef.current.getContext("2d");
+    if (!ctxRef.current) return;
+
+    roughRef.current = rough.canvas(canvasRef.current);
+    if (!roughRef.current) return;
+  }, [mouseDown]);
+
   // drawEffect for mouseDown/mouseMove/mouseUp
   useEffect(() => {
     console.log("effect up/move");
-    if (!mouseDown || !canvasRef.current) return;
+    if (
+      !mouseDown ||
+      !canvasRef.current ||
+      !ctxRef.current ||
+      !roughRef.current
+    )
+      return;
 
     const mouseMoveHandler = (e: MouseEvent) => {
-      console.log("mousemove");
-
       let currentPoint = computePointInCanvas(e);
-      const ctx = canvasRef.current!.getContext("2d");
-      if (!ctx || !currentPoint) return;
+      if (!currentPoint) return;
 
-      roughRef.current = rough.canvas(canvasRef.current);
-      if (!roughRef.current) return;
       streamActions();
 
       // startingPoint can be null, if it is set currentPoint as the starting point
       let startPoint = startingPointRef.current ?? currentPoint;
 
       currentActionRef.current = onAction({
-        rc: roughRef.current,
-        ctx,
+        rc: roughRef.current!,
+        ctx: ctxRef.current!,
         startPoint,
         currentPoint,
         gen,
@@ -207,7 +208,6 @@ export const useCanvas = (onAction: Rough.Action) => {
     };
 
     const mouseUpHandler = () => {
-      console.log("mouseup");
       // reset state
       setMouseDown(false);
       startingPointRef.current = null;
@@ -233,17 +233,14 @@ export const useCanvas = (onAction: Rough.Action) => {
   }, [mouseDown, history, index, scale, origin]);
 
   useEffect(() => {
-    console.log("effect window");
+    console.log("effect resize");
 
     // persist canvas state on resize
     const resizeHandler = () => {
-      console.log("resize");
-      if (!canvasRef.current) return;
-      const ctx = canvasRef.current.getContext("2d");
-      if (!ctx) return;
+      if (!ctxRef.current) return;
       // persist state because on resize removes canvasRef state
-      ctx.scale(scale, scale);
-      ctx.translate(-origin.x, -origin.y);
+      ctxRef.current.scale(scale, scale);
+      ctxRef.current.translate(-origin.x, -origin.y);
       streamActions();
     };
 
@@ -295,8 +292,6 @@ export const useCanvas = (onAction: Rough.Action) => {
   useEffect(() => {
     console.log("effect undo/redo");
     const onPressedHandler = (e: KeyboardEvent) => {
-      console.log("onpress");
-
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         index > 0 && setIndex((i) => i - 1);
       } else if (
