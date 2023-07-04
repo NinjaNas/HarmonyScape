@@ -1,7 +1,7 @@
 // modules
 declare module "roughjs/bundled/rough.esm";
 
-type Point = { x: number; y: number };
+type Point = { x: number; y: number; x0?: number; y0?: number };
 
 // useWindowResize
 type WindowSize = { innerWidth: number; innerHeight: number };
