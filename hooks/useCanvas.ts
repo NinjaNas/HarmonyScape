@@ -14,7 +14,8 @@ export const useCanvas = (onAction: Rough.Action) => {
   const [index, setIndex] = useState<number>(0);
   const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
   const [scale, setScale] = useState<number>(1);
-  const [mouseDown, setMouseDown] = useState<boolean>(false);
+  const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<null | CanvasRenderingContext2D>(null);
@@ -31,15 +32,19 @@ export const useCanvas = (onAction: Rough.Action) => {
     e: React.MouseEvent<HTMLCanvasElement, MouseEvent>
   ) => {
     console.log("mousedown");
+
+    const point = computePointInCanvas(e.nativeEvent);
+    if (!point) return;
+    startingPointRef.current = point;
+
     // left: 0, middle: 1, right: 2
     switch (e.button) {
       case 0:
-        setMouseDown(true);
-        const point = computePointInCanvas(e.nativeEvent);
-        if (!point) return;
-        startingPointRef.current = point;
+        setIsDrawing(true);
         break;
       case 1:
+        e.preventDefault();
+        setIsPanning(true);
         break;
       case 2:
         break;
@@ -168,16 +173,18 @@ export const useCanvas = (onAction: Rough.Action) => {
 
     roughRef.current = rough.canvas(canvasRef.current);
     if (!roughRef.current) return;
-  }, [mouseDown]);
+  }, [isDrawing]);
 
   // drawEffect for mouseDown/mouseMove/mouseUp
   useEffect(() => {
     console.log("effect up/move");
     if (
-      !mouseDown ||
-      !canvasRef.current ||
-      !ctxRef.current ||
-      !roughRef.current
+      !(
+        (isDrawing || isPanning) &&
+        canvasRef.current &&
+        ctxRef.current &&
+        roughRef.current
+      )
     )
       return;
 
@@ -190,23 +197,37 @@ export const useCanvas = (onAction: Rough.Action) => {
       // startingPoint can be null, if it is set currentPoint as the starting point
       let startPoint = startingPointRef.current ?? currentPoint;
 
-      currentActionRef.current = onAction({
-        rc: roughRef.current!,
-        ctx: ctxRef.current!,
-        startPoint,
-        currentPoint,
-        gen,
-      });
+      if (isDrawing) {
+        currentActionRef.current = onAction({
+          rc: roughRef.current!,
+          ctx: ctxRef.current!,
+          startPoint,
+          currentPoint,
+          gen,
+        });
+      } else if (isPanning) {
+        const offsetX = (currentPoint.x0 - startPoint.x0!) / scale;
+        const offsetY = (currentPoint.y0 - startPoint.y0!) / scale;
+
+        ctxRef.current!.translate(offsetX, offsetY);
+        setOrigin(({ x, y }) => ({
+          x: x - offsetX,
+          y: y - offsetY,
+        }));
+
+        // update startingPoint to be anchored to the cursor's position
+        startingPointRef.current = currentPoint;
+      }
     };
 
     const mouseUpHandler = () => {
       // reset state
-      setMouseDown(false);
-      startingPointRef.current = null;
+      setIsDrawing(false);
+      setIsPanning(false);
 
       // add current action to history
+      if (!currentActionRef.current) return;
       setHistory((prevHistory) => {
-        if (!currentActionRef.current) return [...prevHistory.slice(0, index)];
         return [...prevHistory.slice(0, index), currentActionRef.current!];
       });
 
@@ -222,7 +243,7 @@ export const useCanvas = (onAction: Rough.Action) => {
       canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
       window.removeEventListener("mouseup", mouseUpHandler);
     };
-  }, [mouseDown, history, index, scale, origin]);
+  }, [isDrawing, isPanning, history, index, scale, origin]);
 
   useEffect(() => {
     console.log("effect resize");
