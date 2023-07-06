@@ -15,7 +15,7 @@
 * Undo/Redo using shortcuts
 * Resize the canvas
 
-# Upcoming
+## Upcoming
 * Selection
 * Menus
 * Editing
