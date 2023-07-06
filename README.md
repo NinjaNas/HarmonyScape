@@ -14,3 +14,13 @@
 * Scroll up and down the canvas
 * Undo/Redo using shortcuts
 * Resize the canvas
+
+# Upcoming
+* Selection
+* Menus
+* Editing
+* Copy/Paste
+* Text
+* perfect-freehand.js
+* jzz.js
+* vexflow.js
