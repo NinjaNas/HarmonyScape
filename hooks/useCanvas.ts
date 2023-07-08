@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
+import { Drawable } from "roughjs/bin/core";
 import rough from "roughjs/bundled/rough.esm";
 
-export const useCanvas = (onAction: Rough.Action) => {
+export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
   console.log("render canvas ref");
 
   const MIN_SCALE: number = 0.2;
@@ -112,7 +113,7 @@ export const useCanvas = (onAction: Rough.Action) => {
 
     // for each element up to current index redraw that action
     for (let elt of history.slice(0, index)) {
-      let drawable;
+      let drawable: Drawable;
       let { startPoint, currentProp, options } = elt as Rough.DrawProps;
 
       switch (elt.action) {
@@ -134,8 +135,17 @@ export const useCanvas = (onAction: Rough.Action) => {
             options
           );
           break;
+        case "circle":
+          drawable = gen.ellipse(
+            startPoint.x,
+            startPoint.y,
+            (currentProp as Dim).w,
+            (currentProp as Dim).h,
+            options
+          );
+          break;
       }
-      roughRef.current.draw(drawable);
+      roughRef.current.draw(drawable!);
     }
   };
 
@@ -153,6 +163,13 @@ export const useCanvas = (onAction: Rough.Action) => {
     console.log(`${x0}, ${y0}, ${x}, ${y}`);
     return { x0, y0, x, y };
   };
+
+  function getRandomInt(min: number, max: number) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    // The maximum is exclusive and the minimum is inclusive
+    return Math.floor(Math.random() * (max - min) + min);
+  }
 
   // on mount
   useEffect(() => {
@@ -204,12 +221,16 @@ export const useCanvas = (onAction: Rough.Action) => {
       let startPoint = startingPointRef.current ?? currentPoint;
 
       if (isDrawing) {
-        currentActionRef.current = onAction({
+        currentActionRef.current = onAction.func({
+          action: onAction.type,
           rc: roughRef.current!,
           ctx: ctxRef.current!,
           startPoint,
           currentPoint,
           gen,
+          options: {
+            seed: getRandomInt(1, 2 ** 31),
+          },
         });
       } else if (isPanning) {
         const offsetX = (currentPoint.x0 - startPoint.x0!) / scale;
