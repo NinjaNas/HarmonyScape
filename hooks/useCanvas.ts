@@ -164,6 +164,13 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
     return { x0, y0, x, y };
   };
 
+  function getRandomInt(min: number, max: number) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    // The maximum is exclusive and the minimum is inclusive
+    return Math.floor(Math.random() * (max - min) + min);
+  }
+
   // on mount
   useEffect(() => {
     // prevent default ctrl+wheel
@@ -221,6 +228,9 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
           startPoint,
           currentPoint,
           gen,
+          options: {
+            seed: getRandomInt(1, 2 ** 31),
+          },
         });
       } else if (isPanning) {
         const offsetX = (currentPoint.x0 - startPoint.x0!) / scale;
