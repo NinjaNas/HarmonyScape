@@ -3,7 +3,7 @@ import { RoughCanvas } from "roughjs/bin/canvas";
 import { Drawable } from "roughjs/bin/core";
 import rough from "roughjs/bundled/rough.esm";
 
-export const useCanvas = (onAction: [Rough.Action, string]) => {
+export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
   console.log("render canvas ref");
 
   const MIN_SCALE: number = 0.2;
@@ -214,8 +214,8 @@ export const useCanvas = (onAction: [Rough.Action, string]) => {
       let startPoint = startingPointRef.current ?? currentPoint;
 
       if (isDrawing) {
-        currentActionRef.current = onAction[0]({
-          action: onAction[1],
+        currentActionRef.current = onAction.func({
+          action: onAction.type,
           rc: roughRef.current!,
           ctx: ctxRef.current!,
           startPoint,
