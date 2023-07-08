@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { drawLine, drawRect } from "@functions/canvasFunctions";
+import { drawLine, drawRect, drawCircle } from "@functions/canvasFunctions";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
@@ -18,6 +18,9 @@ export default function Canvas(): React.ReactNode {
         break;
       case "rect":
         setAction(() => drawRect);
+        break;
+      case "circle":
+        setAction(() => drawCircle);
         break;
     }
   };
@@ -45,6 +48,15 @@ export default function Canvas(): React.ReactNode {
             onChange={actionHandler}
           />
           <label>rectangle</label>
+          <input
+            type="radio"
+            id="circle"
+            name="action"
+            value="circle"
+            checked={action === drawCircle}
+            onChange={actionHandler}
+          />
+          <label>circle</label>
         </div>
         <div className="flex h-screen w-screen items-center justify-center bg-white">
           <canvas

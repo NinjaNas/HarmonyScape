@@ -20,7 +20,6 @@ export function drawLine({
   );
 
   rc.draw(line);
-
   return {
     action: "line",
     startPoint,
@@ -38,7 +37,7 @@ export function drawRect({
   currentPoint,
   rc,
   gen,
-  seed = 1,
+  seed = getRandomInt(1, 2 ** 31),
   stroke = "#000",
   strokeWidth = 5,
 }: Rough.DrawRect) {
@@ -58,6 +57,45 @@ export function drawRect({
   return {
     action: "rect",
     startPoint,
+    currentProp: dim,
+    options: {
+      seed,
+      stroke,
+      strokeWidth,
+    },
+  };
+}
+
+export function drawCircle({
+  startPoint,
+  currentPoint,
+  rc,
+  gen,
+  seed = getRandomInt(1, 2 ** 31),
+  stroke = "#000",
+  strokeWidth = 5,
+}: Rough.DrawRect) {
+  const dim: Dim = {
+    w: currentPoint.x - startPoint.x,
+    h: currentPoint.y - startPoint.y,
+  };
+
+  const x = (currentPoint.x + startPoint.x) / 2;
+  const y = (currentPoint.y + startPoint.y) / 2;
+
+  let center: Point = { x, y };
+
+  const circle = gen.ellipse(center.x, center.y, dim.w, dim.h, {
+    seed,
+    strokeWidth,
+    stroke,
+  });
+
+  rc.draw(circle);
+
+  return {
+    action: "circle",
+    startPoint: center,
     currentProp: dim,
     options: {
       seed,

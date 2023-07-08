@@ -30,20 +30,32 @@ declare namespace Rough {
     strokeWidth?: number;
   };
 
+  type DrawCircle = {
+    rc: import("roughjs/bin/canvas").RoughCanvas;
+    ctx?: CanvasRenderingContext2D;
+    currentPoint: Point;
+    startPoint: Point;
+    gen: import("roughjs/bin/generator").RoughGenerator;
+    seed?: number;
+    stroke?: string;
+    strokeWidth?: number;
+  };
+
   type DrawLineFunc = ({}: DrawLine) => DrawProps;
   type DrawRectFunc = ({}: DrawRect) => DrawProps;
+  type DrawCircleFunc = ({}: DrawCircle) => DrawProps;
 
   type DrawProps = {
     action: string;
     startPoint: Point;
     currentProp: Point | Dim;
-    options: {
-      seed: number;
-      stroke: string;
-      strokeWidth: number;
+    options?: {
+      seed?: number;
+      stroke?: string;
+      strokeWidth?: number;
     };
   };
 
-  type Action = DrawLineFunc | DrawRectFunc;
+  type Action = DrawLineFunc | DrawRectFunc | DrawCircleFunc;
   type ActionHistory = DrawProps;
 }

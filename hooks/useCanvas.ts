@@ -134,6 +134,15 @@ export const useCanvas = (onAction: Rough.Action) => {
             options
           );
           break;
+        case "circle":
+          drawable = gen.ellipse(
+            startPoint.x,
+            startPoint.y,
+            (currentProp as Dim).w,
+            (currentProp as Dim).h,
+            options
+          );
+          break;
       }
       roughRef.current.draw(drawable);
     }
