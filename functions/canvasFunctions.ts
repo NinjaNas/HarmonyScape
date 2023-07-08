@@ -42,12 +42,12 @@ export function drawRect({
   stroke = "#000",
   strokeWidth = 5,
 }: Rough.DrawRect) {
-  const dim = {
-    x: currentPoint.x - startPoint.x,
-    y: currentPoint.y - startPoint.y,
+  const dim: Dim = {
+    w: currentPoint.x - startPoint.x,
+    h: currentPoint.y - startPoint.y,
   };
 
-  const rect = gen.rectangle(startPoint.x, startPoint.y, dim.x, dim.y, {
+  const rect = gen.rectangle(startPoint.x, startPoint.y, dim.w, dim.h, {
     seed,
     strokeWidth,
     stroke,
