@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { drawLine, drawLine2 } from "@functions/canvasFunctions";
+import { drawLine, drawRect } from "@functions/canvasFunctions";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
@@ -12,10 +12,13 @@ export default function Canvas(): React.ReactNode {
 
   const actionHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("action");
-    if (e.target.value === "draw") {
-      setAction(() => drawLine);
-    } else if (e.target.value === "draw2") {
-      setAction(() => drawLine2);
+    switch (e.target.value) {
+      case "line":
+        setAction(() => drawLine);
+        break;
+      case "rect":
+        setAction(() => drawRect);
+        break;
     }
   };
 
@@ -26,22 +29,22 @@ export default function Canvas(): React.ReactNode {
         <div className="fixed">
           <input
             type="radio"
-            id="draw"
+            id="line"
             name="action"
-            value="draw"
+            value="line"
             checked={action === drawLine}
             onChange={actionHandler}
           />
-          <label>draw</label>
+          <label>line</label>
           <input
             type="radio"
-            id="draw2"
+            id="rect"
             name="action"
-            value="draw2"
-            checked={action === drawLine2}
+            value="rect"
+            checked={action === drawRect}
             onChange={actionHandler}
           />
-          <label>draw2</label>
+          <label>rectangle</label>
         </div>
         <div className="flex h-screen w-screen items-center justify-center bg-white">
           <canvas

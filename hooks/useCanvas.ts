@@ -113,20 +113,26 @@ export const useCanvas = (onAction: Rough.Action) => {
     // for each element up to current index redraw that action
     for (let elt of history.slice(0, index)) {
       let drawable;
+      let { startPoint, currentProp, options } = elt as Rough.DrawProps;
 
       switch (elt.action) {
         case "line":
-          let { startPoint, currentPoint, options } =
-            elt as Rough.DrawLineProps;
-
           drawable = gen.line(
             startPoint.x,
             startPoint.y,
-            currentPoint.x,
-            currentPoint.y,
+            (currentProp as Point).x,
+            (currentProp as Point).y,
             options
           );
-
+          break;
+        case "rect":
+          drawable = gen.rectangle(
+            startPoint.x,
+            startPoint.y,
+            (currentProp as Dim).w,
+            (currentProp as Dim).h,
+            options
+          );
           break;
       }
       roughRef.current.draw(drawable);
