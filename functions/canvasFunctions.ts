@@ -7,14 +7,18 @@ export function drawLine({
   stroke = "#000",
   strokeWidth = 5,
 }: Rough.DrawLine) {
-  const { x: currX, y: currY } = currentPoint;
+  const line = gen.line(
+    startPoint.x,
+    startPoint.y,
+    currentPoint.x,
+    currentPoint.y,
+    {
+      seed,
+      strokeWidth,
+      stroke,
+    }
+  );
 
-  const line = gen.line(startPoint.x, startPoint.y, currX, currY, {
-    seed,
-    strokeWidth,
-    stroke,
-  });
-  // console.log(line);
   rc.draw(line);
 
   return {
@@ -29,29 +33,32 @@ export function drawLine({
   };
 }
 
-export function drawLine2({
+export function drawRect({
   startPoint,
   currentPoint,
   rc,
   gen,
   seed = 1,
-  stroke = "#ff0",
-  strokeWidth = 10,
-}: Rough.DrawLine) {
-  const { x: currX, y: currY } = currentPoint;
+  stroke = "#000",
+  strokeWidth = 5,
+}: Rough.DrawRect) {
+  const dim = {
+    x: currentPoint.x - startPoint.x,
+    y: currentPoint.y - startPoint.y,
+  };
 
-  const line = gen.line(startPoint.x, startPoint.y, currX, currY, {
+  const rect = gen.rectangle(startPoint.x, startPoint.y, dim.x, dim.y, {
     seed,
     strokeWidth,
     stroke,
   });
 
-  rc.draw(line);
+  rc.draw(rect);
 
   return {
-    action: "line",
+    action: "rect",
     startPoint,
-    currentPoint,
+    currentPoint: dim,
     options: {
       seed,
       stroke,
