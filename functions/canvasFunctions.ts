@@ -24,7 +24,7 @@ export function drawLine({
   return {
     action: "line",
     startPoint,
-    currentPoint,
+    currentProp: currentPoint,
     options: {
       seed,
       stroke,
@@ -58,7 +58,7 @@ export function drawRect({
   return {
     action: "rect",
     startPoint,
-    currentPoint: dim,
+    currentProp: dim,
     options: {
       seed,
       stroke,
