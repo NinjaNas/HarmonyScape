@@ -6,9 +6,7 @@ export function draw({
   gen,
   startPoint,
   currentPoint,
-  seed = getRandomInt(1, 2 ** 31),
-  stroke = "#000",
-  strokeWidth = 5,
+  options,
 }: Rough.Draw) {
   let drawable: Drawable;
   let currentProp: Point | Dim = currentPoint;
@@ -25,21 +23,19 @@ export function draw({
         startPoint.y,
         currentPoint.x,
         currentPoint.y,
-        {
-          seed,
-          strokeWidth,
-          stroke,
-        }
+        options
       );
       currentProp = currentPoint;
       break;
 
     case "rect":
-      drawable = gen.rectangle(startPoint.x, startPoint.y, dim.w, dim.h, {
-        seed,
-        strokeWidth,
-        stroke,
-      });
+      drawable = gen.rectangle(
+        startPoint.x,
+        startPoint.y,
+        dim.w,
+        dim.h,
+        options
+      );
       currentProp = dim;
       break;
 
@@ -49,11 +45,7 @@ export function draw({
 
       let center: Point = { x, y };
 
-      drawable = gen.ellipse(center.x, center.y, dim.w, dim.h, {
-        seed,
-        strokeWidth,
-        stroke,
-      });
+      drawable = gen.ellipse(center.x, center.y, dim.w, dim.h, options);
       startPoint = center;
       currentProp = dim;
       break;
@@ -64,18 +56,6 @@ export function draw({
     action,
     startPoint,
     currentProp,
-    options: {
-      seed,
-      stroke,
-      strokeWidth,
-    },
+    options,
   };
-}
-
-// helper
-function getRandomInt(min: number, max: number) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  // The maximum is exclusive and the minimum is inclusive
-  return Math.floor(Math.random() * (max - min) + min);
 }
