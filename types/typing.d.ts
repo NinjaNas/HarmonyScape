@@ -8,7 +8,8 @@ type Dim = { w: number; h: number };
 type WindowSize = { innerWidth: number; innerHeight: number };
 
 declare namespace Rough {
-  type DrawLine = {
+  type Draw = {
+    action: string;
     rc: import("roughjs/bin/canvas").RoughCanvas;
     ctx?: CanvasRenderingContext2D;
     currentPoint: Point;
@@ -19,31 +20,7 @@ declare namespace Rough {
     strokeWidth?: number;
   };
 
-  type DrawRect = {
-    rc: import("roughjs/bin/canvas").RoughCanvas;
-    ctx?: CanvasRenderingContext2D;
-    currentPoint: Point;
-    startPoint: Point;
-    gen: import("roughjs/bin/generator").RoughGenerator;
-    seed?: number;
-    stroke?: string;
-    strokeWidth?: number;
-  };
-
-  type DrawCircle = {
-    rc: import("roughjs/bin/canvas").RoughCanvas;
-    ctx?: CanvasRenderingContext2D;
-    currentPoint: Point;
-    startPoint: Point;
-    gen: import("roughjs/bin/generator").RoughGenerator;
-    seed?: number;
-    stroke?: string;
-    strokeWidth?: number;
-  };
-
-  type DrawLineFunc = ({}: DrawLine) => DrawProps;
-  type DrawRectFunc = ({}: DrawRect) => DrawProps;
-  type DrawCircleFunc = ({}: DrawCircle) => DrawProps;
+  type DrawFunc = ({}: Draw) => DrawProps;
 
   type DrawProps = {
     action: string;
@@ -56,6 +33,6 @@ declare namespace Rough {
     };
   };
 
-  type Action = DrawLineFunc | DrawRectFunc | DrawCircleFunc;
+  type Action = DrawFunc;
   type ActionHistory = DrawProps;
 }

@@ -1,4 +1,7 @@
-export function drawLine({
+import { Drawable } from "roughjs/bin/core";
+
+export function draw({
+  action,
   rc,
   gen,
   startPoint,
@@ -6,97 +9,61 @@ export function drawLine({
   seed = getRandomInt(1, 2 ** 31),
   stroke = "#000",
   strokeWidth = 5,
-}: Rough.DrawLine) {
-  const line = gen.line(
-    startPoint.x,
-    startPoint.y,
-    currentPoint.x,
-    currentPoint.y,
-    {
-      seed,
-      strokeWidth,
-      stroke,
-    }
-  );
+}: Rough.Draw) {
+  let drawable: Drawable;
+  let currentProp: Point | Dim = currentPoint;
 
-  rc.draw(line);
-  return {
-    action: "line",
-    startPoint,
-    currentProp: currentPoint,
-    options: {
-      seed,
-      stroke,
-      strokeWidth,
-    },
-  };
-}
-
-export function drawRect({
-  startPoint,
-  currentPoint,
-  rc,
-  gen,
-  seed = getRandomInt(1, 2 ** 31),
-  stroke = "#000",
-  strokeWidth = 5,
-}: Rough.DrawRect) {
   const dim: Dim = {
     w: currentPoint.x - startPoint.x,
     h: currentPoint.y - startPoint.y,
   };
 
-  const rect = gen.rectangle(startPoint.x, startPoint.y, dim.w, dim.h, {
-    seed,
-    strokeWidth,
-    stroke,
-  });
+  switch (action) {
+    case "line":
+      drawable = gen.line(
+        startPoint.x,
+        startPoint.y,
+        currentPoint.x,
+        currentPoint.y,
+        {
+          seed,
+          strokeWidth,
+          stroke,
+        }
+      );
+      currentProp = currentPoint;
+      break;
 
-  rc.draw(rect);
+    case "rect":
+      drawable = gen.rectangle(startPoint.x, startPoint.y, dim.w, dim.h, {
+        seed,
+        strokeWidth,
+        stroke,
+      });
+      currentProp = dim;
+      break;
 
+    case "circle":
+      const x = (currentPoint.x + startPoint.x) / 2;
+      const y = (currentPoint.y + startPoint.y) / 2;
+
+      let center: Point = { x, y };
+
+      drawable = gen.ellipse(center.x, center.y, dim.w, dim.h, {
+        seed,
+        strokeWidth,
+        stroke,
+      });
+      startPoint = center;
+      currentProp = dim;
+      break;
+  }
+
+  rc.draw(drawable!);
   return {
-    action: "rect",
+    action,
     startPoint,
-    currentProp: dim,
-    options: {
-      seed,
-      stroke,
-      strokeWidth,
-    },
-  };
-}
-
-export function drawCircle({
-  startPoint,
-  currentPoint,
-  rc,
-  gen,
-  seed = getRandomInt(1, 2 ** 31),
-  stroke = "#000",
-  strokeWidth = 5,
-}: Rough.DrawRect) {
-  const dim: Dim = {
-    w: currentPoint.x - startPoint.x,
-    h: currentPoint.y - startPoint.y,
-  };
-
-  const x = (currentPoint.x + startPoint.x) / 2;
-  const y = (currentPoint.y + startPoint.y) / 2;
-
-  let center: Point = { x, y };
-
-  const circle = gen.ellipse(center.x, center.y, dim.w, dim.h, {
-    seed,
-    strokeWidth,
-    stroke,
-  });
-
-  rc.draw(circle);
-
-  return {
-    action: "circle",
-    startPoint: center,
-    currentProp: dim,
+    currentProp,
     options: {
       seed,
       stroke,

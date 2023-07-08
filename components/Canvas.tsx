@@ -1,26 +1,27 @@
 import { useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { drawLine, drawRect, drawCircle } from "@functions/canvasFunctions";
+import { draw } from "@functions/canvasFunctions";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
-  const [action, setAction] = useState<Rough.Action>(() => drawLine);
+  // An action is defined as [function, "type of action"]
+  const [action, setAction] = useState<[Rough.Action, string]>(() => [
+    draw,
+    "line",
+  ]);
   const { canvasRef, mouseDownHandler, onWheelHandler } = useCanvas(action);
   // Needed because Next.js doesn't load window on startup, presumably because of pre-rendering
   const windowSize = useWindowResize();
 
   const actionHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("action");
+
     switch (e.target.value) {
       case "line":
-        setAction(() => drawLine);
-        break;
       case "rect":
-        setAction(() => drawRect);
-        break;
       case "circle":
-        setAction(() => drawCircle);
+        setAction(() => [draw, e.target.value]);
         break;
     }
   };
@@ -35,7 +36,7 @@ export default function Canvas(): React.ReactNode {
             id="line"
             name="action"
             value="line"
-            checked={action === drawLine}
+            checked={action[1] === "line"}
             onChange={actionHandler}
           />
           <label>line</label>
@@ -44,7 +45,7 @@ export default function Canvas(): React.ReactNode {
             id="rect"
             name="action"
             value="rect"
-            checked={action === drawRect}
+            checked={action[1] === "rect"}
             onChange={actionHandler}
           />
           <label>rectangle</label>
@@ -53,7 +54,7 @@ export default function Canvas(): React.ReactNode {
             id="circle"
             name="action"
             value="circle"
-            checked={action === drawCircle}
+            checked={action[1] === "circle"}
             onChange={actionHandler}
           />
           <label>circle</label>

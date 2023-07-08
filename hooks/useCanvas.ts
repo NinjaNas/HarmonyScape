@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
+import { Drawable } from "roughjs/bin/core";
 import rough from "roughjs/bundled/rough.esm";
 
-export const useCanvas = (onAction: Rough.Action) => {
+export const useCanvas = (onAction: [Rough.Action, string]) => {
   console.log("render canvas ref");
 
   const MIN_SCALE: number = 0.2;
@@ -112,7 +113,7 @@ export const useCanvas = (onAction: Rough.Action) => {
 
     // for each element up to current index redraw that action
     for (let elt of history.slice(0, index)) {
-      let drawable;
+      let drawable: Drawable;
       let { startPoint, currentProp, options } = elt as Rough.DrawProps;
 
       switch (elt.action) {
@@ -144,7 +145,7 @@ export const useCanvas = (onAction: Rough.Action) => {
           );
           break;
       }
-      roughRef.current.draw(drawable);
+      roughRef.current.draw(drawable!);
     }
   };
 
@@ -213,7 +214,8 @@ export const useCanvas = (onAction: Rough.Action) => {
       let startPoint = startingPointRef.current ?? currentPoint;
 
       if (isDrawing) {
-        currentActionRef.current = onAction({
+        currentActionRef.current = onAction[0]({
+          action: onAction[1],
           rc: roughRef.current!,
           ctx: ctxRef.current!,
           startPoint,
