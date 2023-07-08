@@ -2,6 +2,7 @@
 declare module "roughjs/bundled/rough.esm";
 
 type Point = { x: number; y: number; x0?: number; y0?: number };
+type Dim = { w: number; h: number };
 
 // useWindowResize
 type WindowSize = { innerWidth: number; innerHeight: number };
@@ -35,7 +36,7 @@ declare namespace Rough {
   type DrawProps = {
     action: string;
     startPoint: Point;
-    currentPoint: Point;
+    currentProp: Point | Dim;
     options: {
       seed: number;
       stroke: string;
