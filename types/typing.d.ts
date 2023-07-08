@@ -15,9 +15,11 @@ declare namespace Rough {
     currentPoint: Point;
     startPoint: Point;
     gen: import("roughjs/bin/generator").RoughGenerator;
-    seed?: number;
-    stroke?: string;
-    strokeWidth?: number;
+    options?: {
+      seed?: number;
+      stroke?: string;
+      strokeWidth?: number;
+    };
   };
 
   type DrawFunc = ({}: Draw) => DrawProps;
