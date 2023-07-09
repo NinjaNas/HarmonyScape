@@ -5,12 +5,13 @@ import { draw } from "@functions/canvasFunctions";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
-  const [action, setAction] = useState<{ func: Rough.Action; type: string }>(
-    () => ({
-      func: draw,
-      type: "line",
-    })
-  );
+  const [action, setAction] = useState<{
+    func: null | Rough.Action;
+    type: string;
+  }>(() => ({
+    func: draw,
+    type: "line",
+  }));
   const { canvasRef, mouseDownHandler, onWheelHandler } = useCanvas(action);
   // Needed because Next.js doesn't load window on startup, presumably because of pre-rendering
   const windowSize = useWindowResize();
@@ -19,6 +20,9 @@ export default function Canvas(): React.ReactNode {
     console.log("action");
 
     switch (e.target.value) {
+      case "select":
+        setAction(() => ({ func: null, type: "select" }));
+        break;
       case "line":
       case "rect":
       case "circle":
@@ -32,6 +36,15 @@ export default function Canvas(): React.ReactNode {
     return (
       <>
         <div className="fixed">
+          <input
+            type="radio"
+            id="select"
+            name="action"
+            value="select"
+            checked={action.type === "select"}
+            onChange={actionHandler}
+          />
+          <label>select</label>
           <input
             type="radio"
             id="line"
