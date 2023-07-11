@@ -416,7 +416,7 @@ export const useCanvas = (onAction: {
     return () => {
       canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
     };
-  }, [onAction, history, index]);
+  }, [onAction, history, index, origin, scale]);
 
   useEffect(() => {
     console.log("effect resize");
