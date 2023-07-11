@@ -51,6 +51,7 @@ export function draw({
 
   rc.draw(drawable!);
   return {
+    id: null,
     action,
     startPoint,
     currentDim,
