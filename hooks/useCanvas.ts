@@ -22,6 +22,9 @@ export const useCanvas = (onAction: {
   const [scale, setScale] = useState<number>(1);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [selectedElement, setSelectedElement] =
+    useState<null | Rough.ActionHistory>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<null | CanvasRenderingContext2D>(null);
@@ -48,10 +51,12 @@ export const useCanvas = (onAction: {
       case 0:
         switch (onAction.type) {
           case "select":
-            let { flag, elt } = detectBoundary(history, point);
+            const { flag, elt } = detectBoundary(history, point);
             if (flag) {
               console.log("clicked on object!");
               console.log(elt);
+              setIsMoving(true);
+              setSelectedElement(elt);
             }
             break;
           case "line":
@@ -132,15 +137,16 @@ export const useCanvas = (onAction: {
     // for each element up to current index redraw that action
     for (let elt of history.slice(0, index)) {
       let drawable: Drawable;
-      let { action, startPoint, currentProp, options } = elt as Rough.DrawProps;
+      const { action, startPoint, currentDim, options } =
+        elt as Rough.DrawProps;
 
       switch (action) {
         case "line":
           drawable = gen.line(
             startPoint.x,
             startPoint.y,
-            (currentProp as Point).x,
-            (currentProp as Point).y,
+            currentDim.w + startPoint.x,
+            currentDim.h + startPoint.y,
             options
           );
           break;
@@ -148,8 +154,8 @@ export const useCanvas = (onAction: {
           drawable = gen.rectangle(
             startPoint.x,
             startPoint.y,
-            (currentProp as Dim).w,
-            (currentProp as Dim).h,
+            currentDim.w,
+            currentDim.h,
             options
           );
           break;
@@ -157,8 +163,8 @@ export const useCanvas = (onAction: {
           drawable = gen.ellipse(
             startPoint.x,
             startPoint.y,
-            (currentProp as Dim).w,
-            (currentProp as Dim).h,
+            currentDim.w,
+            currentDim.h,
             options
           );
           break;
@@ -178,7 +184,9 @@ export const useCanvas = (onAction: {
     const y0 = e.clientY - rect.top;
     const x = origin.x + x0 / scale;
     const y = origin.y + y0 / scale;
-    console.log(`${x0}, ${y0}, ${x}, ${y}`);
+    if (!(onAction.type === "select")) {
+      console.log(`${x0}, ${y0}, ${x}, ${y}`);
+    }
     return { x0, y0, x, y };
   };
 
@@ -196,18 +204,22 @@ export const useCanvas = (onAction: {
     let flag: boolean = false;
 
     for (let elt of history.slice(0, index)) {
-      let {
+      const {
         action,
         startPoint: { x, y },
-        currentProp,
+        currentDim,
       } = elt;
 
       switch (action) {
         case "line":
-          flag = detectLine({ x, y }, currentProp as Point, mousePoint);
+          const currentPoint: Point = {
+            x: currentDim.w + x,
+            y: currentDim.h + y,
+          };
+          flag = detectLine({ x, y }, currentPoint, mousePoint);
           break;
         case "rect": {
-          const { w, h } = currentProp as Dim;
+          const { w, h } = currentDim;
           const tr: Point = { x: x + w, y };
           const bl: Point = { x, y: y + h };
           const br: Point = {
@@ -223,7 +235,7 @@ export const useCanvas = (onAction: {
           break;
         }
         case "circle":
-          const { w, h } = currentProp as Dim;
+          const { w, h } = currentDim;
           const a = w / 2;
           const b = h / 2;
 
@@ -289,7 +301,7 @@ export const useCanvas = (onAction: {
     console.log("effect up/move");
     if (
       !(
-        (isDrawing || isPanning) &&
+        (isDrawing || isPanning || isMoving) &&
         canvasRef.current &&
         ctxRef.current &&
         roughRef.current
@@ -298,26 +310,29 @@ export const useCanvas = (onAction: {
       return;
 
     const mouseMoveHandler = (e: MouseEvent) => {
-      let currentPoint = computePointInCanvas(e);
+      const currentPoint = computePointInCanvas(e);
       if (!currentPoint) return;
 
       streamActions();
 
       // startingPoint can be null, if it is set currentPoint as the starting point
-      let startPoint = startingPointRef.current ?? currentPoint;
+      const startPoint = startingPointRef.current ?? currentPoint;
 
       if (isDrawing && onAction.func) {
-        currentDrawActionRef.current = onAction.func({
-          action: onAction.type,
-          rc: roughRef.current!,
-          ctx: ctxRef.current!,
-          startPoint,
-          currentPoint,
-          gen,
-          options: {
-            seed: getRandomInt(1, 2 ** 31),
-          },
-        });
+        currentDrawActionRef.current = {
+          ...onAction.func({
+            action: onAction.type,
+            rc: roughRef.current!,
+            ctx: ctxRef.current!,
+            startPoint,
+            currentPoint,
+            gen,
+            options: {
+              seed: getRandomInt(1, 2 ** 31),
+            },
+          }),
+          id: index,
+        };
       } else if (isPanning) {
         const offsetX = (currentPoint.x0 - startPoint.x0!) / scale;
         const offsetY = (currentPoint.y0 - startPoint.y0!) / scale;
@@ -330,6 +345,29 @@ export const useCanvas = (onAction: {
 
         // update startingPoint to be anchored to the cursor's position
         startingPointRef.current = currentPoint;
+      } else if (isMoving && selectedElement && startingPointRef.current) {
+        const { id, startPoint, currentDim } = selectedElement;
+        const offsetX = startingPointRef.current.x - startPoint.x;
+        const offsetY = startingPointRef.current.y - startPoint.y;
+
+        setHistory(
+          history.map((prevElt) =>
+            prevElt.id === id
+              ? {
+                  ...prevElt,
+                  // offset so mouse stays in the same place
+                  startPoint: {
+                    x: currentPoint.x - offsetX,
+                    y: currentPoint.y - offsetY,
+                  },
+                  currentProp: {
+                    x: currentPoint.x + currentDim.w - offsetX,
+                    y: currentPoint.y + currentDim.h - offsetY,
+                  },
+                }
+              : prevElt
+          )
+        );
       }
     };
 
@@ -337,6 +375,8 @@ export const useCanvas = (onAction: {
       // reset state
       setIsDrawing(false);
       setIsPanning(false);
+      setIsMoving(false);
+      setSelectedElement(null);
 
       // add current action to history
       if (!currentDrawActionRef.current) return;
@@ -356,7 +396,27 @@ export const useCanvas = (onAction: {
       canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
       window.removeEventListener("mouseup", mouseUpHandler);
     };
-  }, [isDrawing, isPanning, history, index, scale, origin]);
+  }, [isDrawing, isPanning, isMoving, history, index, scale, origin]);
+
+  // update mouse cursor on canvas mouseMove while mouse is not down
+  useEffect(() => {
+    if (!canvasRef.current || !(onAction.type === "select")) return;
+
+    const mouseMoveHandler = (e: MouseEvent) => {
+      const currentPoint = computePointInCanvas(e);
+      if (!currentPoint || !e.target) return;
+      (e.target as HTMLElement).style.cursor = detectBoundary(
+        history,
+        currentPoint
+      ).flag
+        ? "move"
+        : "default";
+    };
+    canvasRef.current.addEventListener("mousemove", mouseMoveHandler);
+    return () => {
+      canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
+    };
+  }, [onAction, index]);
 
   useEffect(() => {
     console.log("effect resize");
