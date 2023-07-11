@@ -10,6 +10,7 @@
 ## Currently you are able to:
 
 - Draw lines, Rectangles, Circles/Ellipses
+- Move shapes with the selection tool
 - Switch between drawing tools
 - Pan the canvas using middle mouse
 - Zoom in/out the canvas relative to the mouse (ctrl+wheel)
