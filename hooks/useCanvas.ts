@@ -3,13 +3,18 @@ import { RoughCanvas } from "roughjs/bin/canvas";
 import { Drawable } from "roughjs/bin/core";
 import rough from "roughjs/bundled/rough.esm";
 
-export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
+export const useCanvas = (onAction: {
+  func: null | Rough.Action;
+  type: string;
+}) => {
   console.log("render canvas ref");
 
   const MIN_SCALE: number = 0.2;
   const MAX_SCALE: number = 5;
   const ZOOM_OUT_FACTOR: number = 0.9;
   const ZOOM_IN_FACTOR: number = 1.1;
+  const LINE_TOLERANCE: number = 1;
+  const CIRCLE_TOLERANCE: number = 0.052;
 
   const [history, setHistory] = useState<Rough.ActionHistory[]>([]);
   const [index, setIndex] = useState<number>(0);
@@ -17,11 +22,14 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
   const [scale, setScale] = useState<number>(1);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [selectedElement, setSelectedElement] =
+    useState<null | Rough.ActionHistory>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<null | CanvasRenderingContext2D>(null);
   const roughRef = useRef<null | RoughCanvas>(null);
-  const currentActionRef = useRef<null | Rough.ActionHistory>(null);
+  const currentDrawActionRef = useRef<null | Rough.ActionHistory>(null);
   const startingPointRef = useRef<null | Point>(null);
 
   const gen = rough.generator();
@@ -41,7 +49,22 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
     // left: 0, middle: 1, right: 2
     switch (e.button) {
       case 0:
-        setIsDrawing(true);
+        switch (onAction.type) {
+          case "select":
+            const { flag, elt } = detectBoundary(history, point);
+            if (flag) {
+              console.log("clicked on object!");
+              console.log(elt);
+              setIsMoving(true);
+              setSelectedElement(elt);
+            }
+            break;
+          case "line":
+          case "rect":
+          case "circle":
+            setIsDrawing(true);
+            break;
+        }
         break;
       case 1:
         e.preventDefault();
@@ -114,15 +137,16 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
     // for each element up to current index redraw that action
     for (let elt of history.slice(0, index)) {
       let drawable: Drawable;
-      let { startPoint, currentProp, options } = elt as Rough.DrawProps;
+      const { action, startPoint, currentDim, options } =
+        elt as Rough.DrawProps;
 
-      switch (elt.action) {
+      switch (action) {
         case "line":
           drawable = gen.line(
             startPoint.x,
             startPoint.y,
-            (currentProp as Point).x,
-            (currentProp as Point).y,
+            currentDim.w + startPoint.x,
+            currentDim.h + startPoint.y,
             options
           );
           break;
@@ -130,8 +154,8 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
           drawable = gen.rectangle(
             startPoint.x,
             startPoint.y,
-            (currentProp as Dim).w,
-            (currentProp as Dim).h,
+            currentDim.w,
+            currentDim.h,
             options
           );
           break;
@@ -139,8 +163,8 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
           drawable = gen.ellipse(
             startPoint.x,
             startPoint.y,
-            (currentProp as Dim).w,
-            (currentProp as Dim).h,
+            currentDim.w,
+            currentDim.h,
             options
           );
           break;
@@ -160,16 +184,85 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
     const y0 = e.clientY - rect.top;
     const x = origin.x + x0 / scale;
     const y = origin.y + y0 / scale;
-    console.log(`${x0}, ${y0}, ${x}, ${y}`);
+    if (!(onAction.type === "select")) {
+      console.log(`${x0}, ${y0}, ${x}, ${y}`);
+    }
     return { x0, y0, x, y };
   };
 
-  function getRandomInt(min: number, max: number) {
+  const getRandomInt = (min: number, max: number) => {
     min = Math.ceil(min);
     max = Math.floor(max);
     // The maximum is exclusive and the minimum is inclusive
     return Math.floor(Math.random() * (max - min) + min);
-  }
+  };
+
+  const detectBoundary = (
+    history: Rough.ActionHistory[],
+    mousePoint: Point
+  ) => {
+    let flag: boolean = false;
+
+    for (let elt of history.slice(0, index)) {
+      const {
+        action,
+        startPoint: { x, y },
+        currentDim,
+      } = elt;
+
+      switch (action) {
+        case "line":
+          const currentPoint: Point = {
+            x: currentDim.w + x,
+            y: currentDim.h + y,
+          };
+          flag = detectLine({ x, y }, currentPoint, mousePoint);
+          break;
+        case "rect": {
+          const { w, h } = currentDim;
+          const tr: Point = { x: x + w, y };
+          const bl: Point = { x, y: y + h };
+          const br: Point = {
+            x: x + w,
+            y: y + h,
+          };
+
+          flag =
+            detectLine({ x, y }, tr, mousePoint) ||
+            detectLine({ x, y }, bl, mousePoint) ||
+            detectLine(tr, br, mousePoint) ||
+            detectLine(bl, br, mousePoint);
+          break;
+        }
+        case "circle":
+          const { w, h } = currentDim;
+          const a = w / 2;
+          const b = h / 2;
+
+          const equation =
+            (mousePoint.x - x) ** 2 / a ** 2 + (mousePoint.y - y) ** 2 / b ** 2;
+          flag = Math.abs(equation - 1) < CIRCLE_TOLERANCE;
+          console.log(Math.abs(equation - 1));
+          break;
+      }
+      if (flag) return { flag, elt };
+    }
+    return { flag, elt: null };
+  };
+
+  const detectLine = (
+    startPoint: Point,
+    endPoint: Point,
+    mousePoint: Point
+  ) => {
+    const offset =
+      distance(startPoint, endPoint) -
+      (distance(startPoint, mousePoint) + distance(endPoint, mousePoint));
+    return Math.abs(offset) < LINE_TOLERANCE;
+  };
+
+  const distance = (a: Point, b: Point) =>
+    Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
 
   // on mount
   useEffect(() => {
@@ -198,12 +291,17 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
     if (!roughRef.current) return;
   }, [isDrawing]);
 
+  // reset draw action on history update
+  useEffect(() => {
+    currentDrawActionRef.current = null;
+  }, [history]);
+
   // drawEffect for mouseDown/mouseMove/mouseUp
   useEffect(() => {
     console.log("effect up/move");
     if (
       !(
-        (isDrawing || isPanning) &&
+        (isDrawing || isPanning || isMoving) &&
         canvasRef.current &&
         ctxRef.current &&
         roughRef.current
@@ -212,26 +310,29 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
       return;
 
     const mouseMoveHandler = (e: MouseEvent) => {
-      let currentPoint = computePointInCanvas(e);
+      const currentPoint = computePointInCanvas(e);
       if (!currentPoint) return;
 
       streamActions();
 
       // startingPoint can be null, if it is set currentPoint as the starting point
-      let startPoint = startingPointRef.current ?? currentPoint;
+      const startPoint = startingPointRef.current ?? currentPoint;
 
-      if (isDrawing) {
-        currentActionRef.current = onAction.func({
-          action: onAction.type,
-          rc: roughRef.current!,
-          ctx: ctxRef.current!,
-          startPoint,
-          currentPoint,
-          gen,
-          options: {
-            seed: getRandomInt(1, 2 ** 31),
-          },
-        });
+      if (isDrawing && onAction.func) {
+        currentDrawActionRef.current = {
+          ...onAction.func({
+            action: onAction.type,
+            rc: roughRef.current!,
+            ctx: ctxRef.current!,
+            startPoint,
+            currentPoint,
+            gen,
+            options: {
+              seed: getRandomInt(1, 2 ** 31),
+            },
+          }),
+          id: index,
+        };
       } else if (isPanning) {
         const offsetX = (currentPoint.x0 - startPoint.x0!) / scale;
         const offsetY = (currentPoint.y0 - startPoint.y0!) / scale;
@@ -244,6 +345,29 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
 
         // update startingPoint to be anchored to the cursor's position
         startingPointRef.current = currentPoint;
+      } else if (isMoving && selectedElement && startingPointRef.current) {
+        const { id, startPoint, currentDim } = selectedElement;
+        const offsetX = startingPointRef.current.x - startPoint.x;
+        const offsetY = startingPointRef.current.y - startPoint.y;
+
+        setHistory(
+          history.map((prevElt) =>
+            prevElt.id === id
+              ? {
+                  ...prevElt,
+                  // offset so mouse stays in the same place
+                  startPoint: {
+                    x: currentPoint.x - offsetX,
+                    y: currentPoint.y - offsetY,
+                  },
+                  currentProp: {
+                    x: currentPoint.x + currentDim.w - offsetX,
+                    y: currentPoint.y + currentDim.h - offsetY,
+                  },
+                }
+              : prevElt
+          )
+        );
       }
     };
 
@@ -251,11 +375,13 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
       // reset state
       setIsDrawing(false);
       setIsPanning(false);
+      setIsMoving(false);
+      setSelectedElement(null);
 
       // add current action to history
-      if (!currentActionRef.current) return;
+      if (!currentDrawActionRef.current) return;
       setHistory((prevHistory) => {
-        return [...prevHistory.slice(0, index), currentActionRef.current!];
+        return [...prevHistory.slice(0, index), currentDrawActionRef.current!];
       });
 
       setIndex((i) => i + 1);
@@ -270,7 +396,27 @@ export const useCanvas = (onAction: { func: Rough.Action; type: string }) => {
       canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
       window.removeEventListener("mouseup", mouseUpHandler);
     };
-  }, [isDrawing, isPanning, history, index, scale, origin]);
+  }, [isDrawing, isPanning, isMoving, history, index, scale, origin]);
+
+  // update mouse cursor on canvas mouseMove while mouse is not down
+  useEffect(() => {
+    if (!canvasRef.current || !(onAction.type === "select")) return;
+
+    const mouseMoveHandler = (e: MouseEvent) => {
+      const currentPoint = computePointInCanvas(e);
+      if (!currentPoint || !e.target) return;
+      (e.target as HTMLElement).style.cursor = detectBoundary(
+        history,
+        currentPoint
+      ).flag
+        ? "move"
+        : "default";
+    };
+    canvasRef.current.addEventListener("mousemove", mouseMoveHandler);
+    return () => {
+      canvasRef.current!.removeEventListener("mousemove", mouseMoveHandler);
+    };
+  }, [onAction, index]);
 
   useEffect(() => {
     console.log("effect resize");

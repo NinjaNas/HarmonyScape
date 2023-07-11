@@ -25,9 +25,10 @@ declare namespace Rough {
   type DrawFunc = ({}: Draw) => DrawProps;
 
   type DrawProps = {
+    id: number;
     action: string;
     startPoint: Point;
-    currentProp: Point | Dim;
+    currentDim: Dim;
     options?: {
       seed?: number;
       stroke?: string;

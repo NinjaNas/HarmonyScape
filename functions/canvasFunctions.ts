@@ -9,12 +9,13 @@ export function draw({
   options,
 }: Rough.Draw) {
   let drawable: Drawable;
-  let currentProp: Point | Dim = currentPoint;
 
   const dim: Dim = {
     w: currentPoint.x - startPoint.x,
     h: currentPoint.y - startPoint.y,
   };
+
+  let currentDim: Dim = dim;
 
   switch (action) {
     case "line":
@@ -25,7 +26,6 @@ export function draw({
         currentPoint.y,
         options
       );
-      currentProp = currentPoint;
       break;
 
     case "rect":
@@ -36,7 +36,6 @@ export function draw({
         dim.h,
         options
       );
-      currentProp = dim;
       break;
 
     case "circle":
@@ -47,7 +46,6 @@ export function draw({
 
       drawable = gen.ellipse(center.x, center.y, dim.w, dim.h, options);
       startPoint = center;
-      currentProp = dim;
       break;
   }
 
@@ -55,7 +53,7 @@ export function draw({
   return {
     action,
     startPoint,
-    currentProp,
+    currentDim,
     options,
   };
 }
