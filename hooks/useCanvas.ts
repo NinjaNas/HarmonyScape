@@ -32,7 +32,6 @@ export const useCanvas = (onAction: {
   const roughRef = useRef<null | RoughCanvas>(null);
   const currentDrawActionRef = useRef<null | Rough.ActionHistory[]>(null);
   const currentSelectActionRef = useRef<null | {
-    elts: Rough.ActionHistory[][];
     newStartPoint?: Point;
     newDim?: Dim;
   }>(null);
@@ -311,7 +310,11 @@ export const useCanvas = (onAction: {
             y: currentPoint.y - offset.y,
           };
           currentSelectActionRef.current = {
-            elts: history.map((prevElts) =>
+            newStartPoint,
+          };
+
+          setHistory(
+            history.map((prevElts) =>
               prevElts.map((prevElt) =>
                 // note that canvas elts and move actions have the same id to reference each other
                 prevElt.action !== "move" && prevElt.id === id
@@ -322,11 +325,8 @@ export const useCanvas = (onAction: {
                     }
                   : prevElt
               )
-            ),
-            newStartPoint,
-          };
-
-          setHistory(currentSelectActionRef.current.elts);
+            )
+          );
         }
       }
     };
