@@ -10,7 +10,7 @@ type WindowSize = { innerWidth: number; innerHeight: number };
 declare namespace Rough {
   type Action = DrawFunc | SelectFunc;
   type ActionHistory = DrawProps | EditProps;
-  type ActionKeys = "line" | "rect" | "circ";
+  type ActionKeys = "line" | "rect" | "circle";
 
   type DrawFunc = ({}: Draw) => DrawProps;
 

@@ -27,7 +27,7 @@ export function draw({
       ),
     rect: () =>
       gen.rectangle(startPoint.x, startPoint.y, dim.w, dim.h, options),
-    circ: () => {
+    circle: () => {
       const x = (currentPoint.x + startPoint.x) / 2;
       const y = (currentPoint.y + startPoint.y) / 2;
 
@@ -96,7 +96,7 @@ export const detectBoundary = ({
             LINE_TOLERANCE,
           });
         },
-        circ: () => {
+        circle: () => {
           const { x, y } = startPoint;
           const { w, h } = currentDim;
           const a = w / 2;

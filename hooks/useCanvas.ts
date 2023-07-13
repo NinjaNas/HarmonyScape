@@ -166,7 +166,7 @@ export const useCanvas = (onAction: {
               currentDim!.h,
               options
             ),
-          circ: () =>
+          circle: () =>
             gen.ellipse(
               startPoint!.x,
               startPoint!.y,
