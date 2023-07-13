@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { draw } from "@functions/canvasFunctions";
+import { draw, detectBoundary } from "@functions/canvasFunctions";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
@@ -21,12 +21,18 @@ export default function Canvas(): React.ReactNode {
 
     switch (e.target.value) {
       case "select":
-        setAction(() => ({ func: null, type: "select" }));
+        setAction(() => ({
+          func: detectBoundary as Rough.SelectFunc,
+          type: "select",
+        }));
         break;
       case "line":
       case "rect":
       case "circle":
-        setAction(() => ({ func: draw, type: e.target.value }));
+        setAction(() => ({
+          func: draw,
+          type: e.target.value,
+        }));
         break;
     }
   };
