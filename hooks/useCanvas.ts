@@ -49,7 +49,7 @@ export const useCanvas = (onAction: {
 
     const point = computePointInCanvas(e.nativeEvent);
     if (!point) return;
-    startingPointRef.current = { x: point.x, y: point.y };
+    startingPointRef.current = point;
 
     // left: 0, middle: 1, right: 2
     switch (e.button) {
@@ -262,10 +262,7 @@ export const useCanvas = (onAction: {
       streamActions();
 
       // startingPoint can be null, if it is set currentPoint as the starting point
-      const startPoint = startingPointRef.current ?? {
-        x: currentPoint.x,
-        y: currentPoint.y,
-      };
+      const startPoint = startingPointRef.current ?? currentPoint;
 
       if (isDrawing && onAction.func) {
         currentDrawActionRef.current = [
@@ -275,8 +272,8 @@ export const useCanvas = (onAction: {
               action: onAction.type,
               rc: roughRef.current!,
               ctx: ctxRef.current!,
-              startPoint,
-              currentPoint,
+              startPoint: { x: startPoint.x, y: startPoint.y },
+              currentPoint: { x: currentPoint.x, y: currentPoint.y },
               gen,
               options: {
                 seed: getRandomInt(1, 2 ** 31),
