@@ -1,40 +1,52 @@
 import { useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { draw, detectBoundary } from "@functions/canvasFunctions";
+import { draw, detectBoundary } from "@/functions/canvasActionFunctions";
+import { useRemoveCtrlZoom } from "@/hooks/useRemoveCtrlZoom";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
   const [action, setAction] = useState<{
     func: null | Rough.Action;
-    type: string;
+    type: Rough.CanvasActions;
   }>(() => ({
     func: draw,
     type: "line",
   }));
+
   const { canvasRef, mouseDownHandler, onWheelHandler } = useCanvas(action);
   // Needed because Next.js doesn't load window on startup, presumably because of pre-rendering
   const windowSize = useWindowResize();
+  useRemoveCtrlZoom();
 
   const actionHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("action");
 
-    switch (e.target.value) {
-      case "select":
+    const drawFunc = () =>
+      setAction(() => ({
+        func: draw as Rough.DrawFunc,
+        type: e.target.value as Rough.CanvasActions,
+      }));
+
+    const actionHandlers: { [K in Rough.CanvasActions]: () => void } = {
+      line: () => {
+        drawFunc();
+      },
+      rect: () => {
+        drawFunc();
+      },
+      circle: () => {
+        drawFunc();
+      },
+      select: () => {
         setAction(() => ({
           func: detectBoundary as Rough.SelectFunc,
           type: "select",
         }));
-        break;
-      case "line":
-      case "rect":
-      case "circle":
-        setAction(() => ({
-          func: draw,
-          type: e.target.value,
-        }));
-        break;
-    }
+      },
+    };
+
+    actionHandlers[e.target.value as Rough.CanvasActions]();
   };
 
   if (windowSize) {

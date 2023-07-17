@@ -17,7 +17,7 @@ export const useCanvas = (onAction: {
   console.log("render canvas ref");
 
   const [history, setHistory] = useState<Rough.ActionHistory[][]>([]);
-  const [index, setIndex] = useState<number>(0);
+  const [index, setIndex] = useState<number>(0); // index is the length of states in history
   const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
   const [scale, setScale] = useState<number>(1);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -52,10 +52,19 @@ export const useCanvas = (onAction: {
     startingPointRef.current = point;
 
     // left: 0, middle: 1, right: 2
-    switch (e.button) {
-      case 0:
-        switch (onAction.type) {
-          case "select":
+    const keyHandlers: { [K in Rough.ActionMouse]: () => void } = {
+      0: () => {
+        const actionHandlers: { [K in Rough.CanvasActions]: () => void } = {
+          line: () => {
+            setIsDrawing(true);
+          },
+          rect: () => {
+            setIsDrawing(true);
+          },
+          circle: () => {
+            setIsDrawing(true);
+          },
+          select: () => {
             // null or multiple element array
             const elts = (onAction.func as Rough.SelectFunc)({
               history,
@@ -68,21 +77,19 @@ export const useCanvas = (onAction: {
             if (!elts) return;
             setIsMoving(true);
             setSelectedElements(elts);
-            break;
-          case "line":
-          case "rect":
-          case "circle":
-            setIsDrawing(true);
-            break;
-        }
-        break;
-      case 1:
+          },
+        };
+
+        actionHandlers[onAction.type as Rough.CanvasActions]();
+      },
+      1: () => {
         e.preventDefault();
         setIsPanning(true);
-        break;
-      case 2:
-        break;
-    }
+      },
+      2: () => {},
+    };
+
+    keyHandlers[e.button as Rough.ActionMouse]();
   };
 
   // scroll and ctrl+wheel zoom
@@ -145,36 +152,36 @@ export const useCanvas = (onAction: {
     );
 
     // for each element up to current index redraw that action
-    for (let elts of history.slice(0, index)) {
-      for (let { action, startPoint, currentDim, options } of elts) {
+    for (const elts of history.slice(0, index)) {
+      for (const { action, startPoint, currentDim, options } of elts) {
         if (!startPoint || !currentDim) continue;
-        const actionHandlers: { [K in Rough.ActionKeys]: () => Drawable } = {
+        const actionHandlers: { [K in Rough.ActionDraw]: () => Drawable } = {
           line: () =>
             gen.line(
-              startPoint!.x,
-              startPoint!.y,
-              currentDim!.w + startPoint!.x,
-              currentDim!.h + startPoint!.y,
+              startPoint.x,
+              startPoint.y,
+              currentDim.w + startPoint.x,
+              currentDim.h + startPoint.y,
               options
             ),
           rect: () =>
             gen.rectangle(
-              startPoint!.x,
-              startPoint!.y,
-              currentDim!.w,
-              currentDim!.h,
+              startPoint.x,
+              startPoint.y,
+              currentDim.w,
+              currentDim.h,
               options
             ),
           circle: () =>
             gen.ellipse(
-              startPoint!.x,
-              startPoint!.y,
-              currentDim!.w,
-              currentDim!.h,
+              startPoint.x,
+              startPoint.y,
+              currentDim.w,
+              currentDim.h,
               options
             ),
         };
-        const drawable = actionHandlers[action as Rough.ActionKeys]();
+        const drawable = actionHandlers[action as Rough.ActionDraw]();
 
         roughRef.current.draw(drawable);
       }
@@ -204,22 +211,6 @@ export const useCanvas = (onAction: {
     // The maximum is exclusive and the minimum is inclusive
     return Math.floor(Math.random() * (max - min) + min);
   };
-
-  // on mount
-  useEffect(() => {
-    // prevent default ctrl+wheel
-    const wheelHandler = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener("wheel", wheelHandler, { passive: false });
-
-    return () => {
-      window.removeEventListener("wheel", wheelHandler);
-    };
-  }, []);
 
   // update canvasRefs upon mouseDown
   useEffect(() => {
@@ -259,72 +250,92 @@ export const useCanvas = (onAction: {
       const currentPoint = computePointInCanvas(e);
       if (!currentPoint) return;
 
-      streamActions();
-
       // startingPoint can be null, if it is set currentPoint as the starting point
       const startPoint = startingPointRef.current ?? currentPoint;
 
+      streamActions();
+
       if (isDrawing && onAction.func) {
-        currentDrawActionRef.current = [
-          {
-            ...(onAction.func as Rough.DrawFunc)({
-              history,
-              action: onAction.type,
-              rc: roughRef.current!,
-              ctx: ctxRef.current!,
-              startPoint: { x: startPoint.x, y: startPoint.y },
-              currentPoint: { x: currentPoint.x, y: currentPoint.y },
-              gen,
-              options: {
-                seed: getRandomInt(1, 2 ** 31),
-              },
-            }),
-          },
-        ];
+        drawing({ startPoint, currentPoint });
       } else if (isPanning) {
+        panning({ startPoint, currentPoint });
+      } else if (isMoving && startingPointRef.current) {
+        movingObj({ startPoint, currentPoint });
+      }
+    };
+
+    const drawing = ({ startPoint, currentPoint }: Rough.Points) => {
+      currentDrawActionRef.current = [
+        {
+          ...(onAction.func as Rough.DrawFunc)({
+            history,
+            action: onAction.type as Rough.ActionDraw,
+            rc: roughRef.current!,
+            ctx: ctxRef.current!,
+            startPoint: { x: startPoint.x, y: startPoint.y },
+            currentPoint: { x: currentPoint.x, y: currentPoint.y },
+            gen,
+            options: {
+              seed: getRandomInt(1, 2 ** 31),
+            },
+          }),
+        },
+      ];
+    };
+
+    const panning = ({ startPoint, currentPoint }: Rough.Points) => {
+      if (
+        !currentPoint.x0 ||
+        !currentPoint.y0 ||
+        !startPoint.x0 ||
+        !startPoint.y0
+      )
+        return;
+
+      const offset = {
+        x: (currentPoint.x0 - startPoint.x0) / scale,
+        y: (currentPoint.y0 - startPoint.y0) / scale,
+      };
+
+      ctxRef.current!.translate(offset.x, offset.y);
+      setOrigin(({ x, y }) => ({
+        x: x - offset.x,
+        y: y - offset.y,
+      }));
+
+      // update startingPoint to be anchored to the cursor's position
+      startingPointRef.current = currentPoint;
+    };
+
+    const movingObj = ({ currentPoint }: Rough.Points) => {
+      for (const { id, startPoint } of selectedElements) {
+        if (!startingPointRef.current) return;
         const offset = {
-          x: (currentPoint.x0 - startPoint.x0!) / scale,
-          y: (currentPoint.y0 - startPoint.y0!) / scale,
+          x: startingPointRef.current.x - startPoint.x,
+          y: startingPointRef.current.y - startPoint.y,
+        };
+        const newStartPoint = {
+          x: currentPoint.x - offset.x,
+          y: currentPoint.y - offset.y,
+        };
+        currentSelectActionRef.current = {
+          newStartPoint,
         };
 
-        ctxRef.current!.translate(offset.x, offset.y);
-        setOrigin(({ x, y }) => ({
-          x: x - offset.x,
-          y: y - offset.y,
-        }));
-
-        // update startingPoint to be anchored to the cursor's position
-        startingPointRef.current = currentPoint;
-      } else if (isMoving && startingPointRef.current) {
-        for (let { id, startPoint } of selectedElements) {
-          if (!startPoint) return;
-          const offset = {
-            x: startingPointRef.current.x - startPoint.x,
-            y: startingPointRef.current.y - startPoint.y,
-          };
-          const newStartPoint = {
-            x: currentPoint.x - offset.x,
-            y: currentPoint.y - offset.y,
-          };
-          currentSelectActionRef.current = {
-            newStartPoint,
-          };
-
-          setHistory(
-            history.map((prevElts) =>
-              prevElts.map((prevElt) =>
-                // note that canvas elts and move actions have the same id to reference each other
-                prevElt.action !== "move" && prevElt.id === id
-                  ? {
-                      ...prevElt,
-                      // offset so mouse stays in the same place
-                      startPoint: newStartPoint,
-                    }
-                  : prevElt
-              )
+        setHistory(
+          history.map((prevElts) =>
+            prevElts.map((prevElt) =>
+              // note that canvas elts and move actions have the same id to reference each other
+              prevElt.action !== "move" && prevElt.id === id
+                ? {
+                    ...prevElt,
+                    // offset so mouse stays in the same place
+                    startPoint: newStartPoint,
+                  }
+                : prevElt
             )
-          );
-        }
+          )
+        );
       }
     };
 
@@ -337,29 +348,35 @@ export const useCanvas = (onAction: {
 
       // add current action to history
       if (currentDrawActionRef.current) {
-        setHistory((prevHistory) => {
-          return [
-            ...prevHistory.slice(0, index),
-            currentDrawActionRef.current!,
-          ];
-        });
-        setIndex((i) => i + 1);
+        drawingSave();
       } else if (currentSelectActionRef.current && selectedElements.length) {
-        // move elements, go through all selectedElements, store necessary props in history
-        const necessaryMoveProps = selectedElements.map(
-          (prevProp) =>
-            ({
-              id: prevProp.id,
-              action: "move",
-              startPoint: prevProp.startPoint,
-              newStartPoint: currentSelectActionRef.current!.newStartPoint,
-            }) as Rough.EditProps
-        );
-        setHistory((prevHistory) => {
-          return [...prevHistory.slice(0, index), necessaryMoveProps];
-        });
-        setIndex((i) => i + 1);
+        movingSave();
       }
+    };
+
+    const drawingSave = () => {
+      setHistory((prevHistory) => {
+        return [...prevHistory.slice(0, index), currentDrawActionRef.current!];
+      });
+      setIndex((i) => i + 1);
+    };
+
+    const movingSave = () => {
+      // move elements, go through all selectedElements, store necessary props in history
+      const necessaryMoveProps = selectedElements.map(
+        (prevProp) =>
+          ({
+            id: prevProp.id,
+            action: "move",
+            startPoint: prevProp.startPoint,
+            newStartPoint: currentSelectActionRef.current!.newStartPoint,
+          }) as Rough.EditProps
+      );
+
+      setHistory((prevHistory) => {
+        return [...prevHistory.slice(0, index), necessaryMoveProps];
+      });
+      setIndex((i) => i + 1);
     };
 
     // setup Mouse Handler
@@ -440,68 +457,83 @@ export const useCanvas = (onAction: {
   // undo/redo
   useEffect(() => {
     console.log("effect undo/redo");
-    const onPressedHandler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
-        if (index > 0 && history[index - 1]) {
-          // if there is a move action at current index, pass props to canvas elt to undo action
-          for (let props of history[index - 1]!) {
-            if (props.action === "move") {
-              setHistory(
-                history.map((prevHistory) =>
-                  prevHistory.map((prevElts) =>
-                    // note that canvas elts and move actions have the same id to reference each other
-                    prevElts.action !== "move" && props.id === prevElts.id
-                      ? {
-                          ...prevElts,
-                          ...(props.startPoint && {
-                            startPoint: props.startPoint,
-                          }),
-                          ...(props.currentDim && {
-                            currentDim: props.currentDim,
-                          }),
-                        }
-                      : prevElts
-                  )
+
+    const undoRedoHandler = ({
+      action,
+      condition,
+      newIndex,
+      actionIndex,
+    }: any) => {
+      if (condition) {
+        // if there is a move action at current index, pass props to canvas elt to undo action
+        for (const props of history[actionIndex]!) {
+          if (props && props.action === "move") {
+            const actionHandlers: {
+              [K in Rough.ActionShortcuts]: () => {
+                nextStartPoint: Point;
+                nextDim: Dim;
+              };
+            } = {
+              undo: () => ({
+                nextStartPoint: props.startPoint,
+                nextDim: props.currentDim,
+              }),
+
+              redo: () => ({
+                nextStartPoint: (props as Rough.EditProps).newStartPoint,
+                nextDim: (props as Rough.EditProps).newDim,
+              }),
+            };
+
+            const { nextStartPoint, nextDim } =
+              actionHandlers[action as Rough.ActionShortcuts]();
+
+            setHistory(
+              history.map((prevHistory) =>
+                prevHistory.map((prevElts) =>
+                  // note that canvas elts and move actions have the same id to reference each other
+                  prevElts.action !== "move" && props.id === prevElts.id
+                    ? {
+                        ...prevElts,
+                        ...(nextStartPoint && {
+                          startPoint: nextStartPoint,
+                        }),
+                        ...(nextDim && {
+                          currentDim: nextDim,
+                        }),
+                      }
+                    : prevElts
                 )
-              );
-            }
+              )
+            );
           }
-          setIndex((i) => i - 1);
         }
+        setIndex(newIndex);
+      }
+    };
+
+    const onPressedHandler = (e: KeyboardEvent) => {
+      const undo = {
+        action: "undo",
+        condition: index > 0,
+        newIndex: index - 1,
+        actionIndex: index - 1,
+      };
+
+      const redo = {
+        action: "redo",
+        condition: index < history.length,
+        newIndex: index + 1,
+        actionIndex: index,
+      };
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        undoRedoHandler(undo);
       } else if (
         (e.ctrlKey && e.key === "y") ||
         (e.metaKey && e.shiftKey && e.key === "z")
       ) {
-        if (index < history.length && history[index]) {
-          // if there is a move action at the next index, pass props to canvas elt to redo action
-          for (let props of history[index]!) {
-            if (
-              props.action === "move" &&
-              ("newStartPoint" in props || "newDim" in props)
-            ) {
-              setHistory(
-                history.map((prevHistory) =>
-                  prevHistory.map((prevElts) =>
-                    // note that canvas elts and move actions have the same id to reference each other
-                    prevElts.action !== "move" && props.id === prevElts.id
-                      ? {
-                          ...prevElts,
-                          ...((props as Rough.EditProps).newStartPoint && {
-                            startPoint: (props as Rough.EditProps)
-                              .newStartPoint,
-                          }),
-                          ...((props as Rough.EditProps).newDim && {
-                            currentDim: (props as Rough.EditProps).newDim,
-                          }),
-                        }
-                      : prevElts
-                  )
-                )
-              );
-            }
-          }
-          setIndex((i) => i + 1);
-        }
+        undoRedoHandler(redo);
       }
     };
 

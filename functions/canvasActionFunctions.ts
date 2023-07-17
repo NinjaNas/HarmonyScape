@@ -16,7 +16,7 @@ export function draw({
 
   let currentDim: Dim = dim;
 
-  const actionHandlers: { [K in Rough.ActionKeys]: () => Drawable } = {
+  const actionHandlers: { [K in Rough.ActionDraw]: () => Drawable } = {
     line: () =>
       gen.line(
         startPoint.x,
@@ -37,7 +37,7 @@ export function draw({
     },
   };
 
-  const drawable = actionHandlers[action as Rough.ActionKeys]();
+  const drawable = actionHandlers[action as Rough.ActionDraw]();
 
   rc.draw(drawable);
   return {
@@ -58,11 +58,11 @@ export const detectBoundary = ({
 }: Rough.Select) => {
   let eltArr: Rough.ActionHistory[] = [];
 
-  for (let elts of history.slice(0, index)) {
-    for (let elt of elts) {
+  for (const elts of history.slice(0, index)) {
+    for (const elt of elts) {
       if (!elt.startPoint || !elt.currentDim) continue;
       const { action, startPoint, currentDim } = elt;
-      const actionHandlers: { [K in Rough.ActionKeys]: () => boolean } = {
+      const actionHandlers: { [K in Rough.ActionDraw]: () => boolean } = {
         line: () => {
           const { x, y } = startPoint;
           const currentPoint: Point = {
@@ -108,21 +108,17 @@ export const detectBoundary = ({
         },
       };
 
-      const flag = actionHandlers[action as Rough.ActionKeys]();
+      const flag = actionHandlers[action as Rough.ActionDraw]();
       if (flag) eltArr = [...eltArr, elt];
     }
   }
   return eltArr.length ? eltArr : null;
 };
 
-const detectLine = ({
-  lines,
-  mousePoint,
-  LINE_TOLERANCE,
-}: Rough.DetectLine) => {
+const detectLine = ({ lines, mousePoint, LINE_TOLERANCE }: DetectLine) => {
   let flag = false;
 
-  for (let { startPoint, endPoint } of lines) {
+  for (const { startPoint, endPoint } of lines) {
     const offset =
       distance({ a: startPoint, b: endPoint }) -
       (distance({ a: startPoint, b: mousePoint }) +
@@ -133,5 +129,5 @@ const detectLine = ({
   return flag;
 };
 
-const distance = ({ a, b }: Rough.Distance) =>
+const distance = ({ a, b }: Distance) =>
   Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
