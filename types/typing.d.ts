@@ -7,16 +7,35 @@ type Dim = { w: number; h: number };
 // useWindowResize
 type WindowSize = { innerWidth: number; innerHeight: number };
 
+type TestLines = {
+  startPoint: Point;
+  endPoint: Point;
+};
+
+type DetectLine = {
+  lines: TestLines[];
+  mousePoint: Point;
+  LINE_TOLERANCE: number;
+};
+
+type Distance = {
+  a: Point;
+  b: Point;
+};
+
 declare namespace Rough {
   type Action = DrawFunc | SelectFunc;
   type ActionHistory = DrawProps | EditProps;
-  type ActionKeys = "line" | "rect" | "circle";
+  type ActionDraw = "line" | "rect" | "circle";
+  type ActionMouse = 0 | 1 | 2;
+  type ActionShortcuts = "undo" | "redo";
+  type CanvasActions = ActionDraw | "select";
 
   type DrawFunc = ({}: Draw) => DrawProps;
 
   type Draw = {
     history: Rough.ActionHistory[][];
-    action: string;
+    action: Rough.ActionDraw;
     rc: import("roughjs/bin/canvas").RoughCanvas;
     ctx?: CanvasRenderingContext2D;
     currentPoint: Point;
@@ -31,7 +50,7 @@ declare namespace Rough {
 
   type DrawProps = {
     id: number;
-    action: string;
+    action: Rough.ActionDraw;
     startPoint: Point;
     currentDim: Dim;
     options?: {
@@ -55,31 +74,33 @@ declare namespace Rough {
 
   type EditProps = {
     id: number;
-    action: string;
-    newStartPoint?: Point;
-    startPoint?: Point;
-    newDim?: Dim;
-    currentDim?: Dim;
+    action: "move";
     options?: {
       seed?: number;
       stroke?: string;
       strokeWidth?: number;
     };
-  };
-
-  type TestLines = {
+  } & {
+    newStartPoint: Point;
     startPoint: Point;
-    endPoint: Point;
+    newDim?: Dim;
+    currentDim?: Dim;
+  } & {
+    newStartPoint?: Point;
+    startPoint?: Point;
+    newDim: Dim;
+    currentDim: Dim;
+  } & { newStartPoint: Point; startPoint: Point; newDim: Dim; currentDim: Dim };
+
+  type Points = {
+    startPoint: Point;
+    currentPoint: Point;
   };
 
-  type DetectLine = {
-    lines: TestLines[];
-    mousePoint: Point;
-    LINE_TOLERANCE: number;
-  };
-
-  type Distance = {
-    a: Point;
-    b: Point;
+  type UndoRedoHandler = {
+    action: Rough.ActionShortcuts;
+    condition: boolean;
+    newIndex: number;
+    actionIndex: number;
   };
 }
