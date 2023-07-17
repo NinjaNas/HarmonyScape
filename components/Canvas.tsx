@@ -22,31 +22,22 @@ export default function Canvas(): React.ReactNode {
   const actionHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("action");
 
-    const drawFunc = () =>
-      setAction(() => ({
-        func: draw as Rough.DrawFunc,
-        type: e.target.value as Rough.CanvasActions,
-      }));
-
-    const actionHandlers: { [K in Rough.CanvasActions]: () => void } = {
-      line: () => {
-        drawFunc();
-      },
-      rect: () => {
-        drawFunc();
-      },
-      circle: () => {
-        drawFunc();
-      },
-      select: () => {
+    switch (e.target.value as Rough.CanvasActions) {
+      case "select":
         setAction(() => ({
           func: detectBoundary as Rough.SelectFunc,
           type: "select",
         }));
-      },
-    };
-
-    actionHandlers[e.target.value as Rough.CanvasActions]();
+        break;
+      case "line":
+      case "rect":
+      case "circle":
+        setAction(() => ({
+          func: draw as Rough.DrawFunc,
+          type: e.target.value as Rough.CanvasActions,
+        }));
+        break;
+    }
   };
 
   if (windowSize) {

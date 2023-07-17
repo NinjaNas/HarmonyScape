@@ -52,19 +52,10 @@ export const useCanvas = (onAction: {
     startingPointRef.current = point;
 
     // left: 0, middle: 1, right: 2
-    const keyHandlers: { [K in Rough.ActionMouse]: () => void } = {
-      0: () => {
-        const actionHandlers: { [K in Rough.CanvasActions]: () => void } = {
-          line: () => {
-            setIsDrawing(true);
-          },
-          rect: () => {
-            setIsDrawing(true);
-          },
-          circle: () => {
-            setIsDrawing(true);
-          },
-          select: () => {
+    switch (e.button) {
+      case 0:
+        switch (onAction.type as Rough.CanvasActions) {
+          case "select":
             // null or multiple element array
             const elts = (onAction.func as Rough.SelectFunc)({
               history,
@@ -77,19 +68,21 @@ export const useCanvas = (onAction: {
             if (!elts) return;
             setIsMoving(true);
             setSelectedElements(elts);
-          },
-        };
-
-        actionHandlers[onAction.type as Rough.CanvasActions]();
-      },
-      1: () => {
+            break;
+          case "line":
+          case "rect":
+          case "circle":
+            setIsDrawing(true);
+            break;
+        }
+        break;
+      case 1:
         e.preventDefault();
         setIsPanning(true);
-      },
-      2: () => {},
-    };
-
-    keyHandlers[e.button as Rough.ActionMouse]();
+        break;
+      case 2:
+        break;
+    }
   };
 
   // scroll and ctrl+wheel zoom
@@ -155,33 +148,35 @@ export const useCanvas = (onAction: {
     for (const elts of history.slice(0, index)) {
       for (const { action, startPoint, currentDim, options } of elts) {
         if (!startPoint || !currentDim) continue;
-        const actionHandlers: { [K in Rough.ActionDraw]: () => Drawable } = {
-          line: () =>
-            gen.line(
-              startPoint.x,
-              startPoint.y,
-              currentDim.w + startPoint.x,
-              currentDim.h + startPoint.y,
-              options
-            ),
-          rect: () =>
-            gen.rectangle(
-              startPoint.x,
-              startPoint.y,
-              currentDim.w,
-              currentDim.h,
-              options
-            ),
-          circle: () =>
-            gen.ellipse(
-              startPoint.x,
-              startPoint.y,
-              currentDim.w,
-              currentDim.h,
-              options
-            ),
-        };
-        const drawable = actionHandlers[action as Rough.ActionDraw]();
+
+        const drawable: Drawable = (() => {
+          switch (action as Rough.ActionDraw) {
+            case "line":
+              return gen.line(
+                startPoint.x,
+                startPoint.y,
+                currentDim.w + startPoint.x,
+                currentDim.h + startPoint.y,
+                options
+              );
+            case "rect":
+              return gen.rectangle(
+                startPoint.x,
+                startPoint.y,
+                currentDim.w,
+                currentDim.h,
+                options
+              );
+            case "circle":
+              return gen.ellipse(
+                startPoint.x,
+                startPoint.y,
+                currentDim.w,
+                currentDim.h,
+                options
+              );
+          }
+        })();
 
         roughRef.current.draw(drawable);
       }
@@ -463,30 +458,25 @@ export const useCanvas = (onAction: {
       condition,
       newIndex,
       actionIndex,
-    }: any) => {
+    }: Rough.UndoRedoHandler) => {
       if (condition) {
         // if there is a move action at current index, pass props to canvas elt to undo action
         for (const props of history[actionIndex]!) {
           if (props && props.action === "move") {
-            const actionHandlers: {
-              [K in Rough.ActionShortcuts]: () => {
-                nextStartPoint: Point;
-                nextDim: Dim;
-              };
-            } = {
-              undo: () => ({
-                nextStartPoint: props.startPoint,
-                nextDim: props.currentDim,
-              }),
-
-              redo: () => ({
-                nextStartPoint: (props as Rough.EditProps).newStartPoint,
-                nextDim: (props as Rough.EditProps).newDim,
-              }),
-            };
-
-            const { nextStartPoint, nextDim } =
-              actionHandlers[action as Rough.ActionShortcuts]();
+            const { nextStartPoint, nextDim } = (() => {
+              switch (action as Rough.ActionShortcuts) {
+                case "undo":
+                  return {
+                    nextStartPoint: props.startPoint,
+                    nextDim: props.currentDim,
+                  };
+                case "redo":
+                  return {
+                    nextStartPoint: (props as Rough.EditProps).newStartPoint,
+                    nextDim: (props as Rough.EditProps).newDim,
+                  };
+              }
+            })();
 
             setHistory(
               history.map((prevHistory) =>
@@ -514,14 +504,14 @@ export const useCanvas = (onAction: {
 
     const onPressedHandler = (e: KeyboardEvent) => {
       const undo = {
-        action: "undo",
+        action: "undo" as Rough.ActionShortcuts,
         condition: index > 0,
         newIndex: index - 1,
         actionIndex: index - 1,
       };
 
       const redo = {
-        action: "redo",
+        action: "redo" as Rough.ActionShortcuts,
         condition: index < history.length,
         newIndex: index + 1,
         actionIndex: index,
