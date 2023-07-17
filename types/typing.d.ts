@@ -27,7 +27,6 @@ declare namespace Rough {
   type Action = DrawFunc | SelectFunc;
   type ActionHistory = DrawProps | EditProps;
   type ActionDraw = "line" | "rect" | "circle";
-  type ActionMouse = 0 | 1 | 2;
   type ActionShortcuts = "undo" | "redo";
   type CanvasActions = ActionDraw | "select";
 
