@@ -1,14 +1,14 @@
+import { drawSelection } from "@functions/canvasActionFunctions";
 import { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { Drawable } from "roughjs/bin/core";
 import rough from "roughjs/bundled/rough.esm";
-
-const MIN_SCALE: number = 0.2;
-const MAX_SCALE: number = 5;
-const ZOOM_OUT_FACTOR: number = 0.9;
-const ZOOM_IN_FACTOR: number = 1.1;
-const LINE_TOLERANCE: number = 1;
-const CIRCLE_TOLERANCE: number = 0.052;
+import {
+  MIN_SCALE,
+  MAX_SCALE,
+  ZOOM_IN_FACTOR,
+  ZOOM_OUT_FACTOR,
+} from "@constants/canvasConstants";
 
 export const useCanvas = (onAction: {
   func: null | Rough.Action;
@@ -57,21 +57,30 @@ export const useCanvas = (onAction: {
         switch (onAction.type as Rough.CanvasActions) {
           case "select":
             // null or multiple element array
-            const elts = (onAction.func as Rough.SelectFunc)({
+            const { elts, action } = (onAction.func as Rough.SelectFunc)({
               history,
               mousePoint: point,
               index,
-              LINE_TOLERANCE,
-              CIRCLE_TOLERANCE,
             });
-
-            if (!elts) return;
-            setIsMoving(true);
-            setSelectedElements(elts);
+            console.log(elts);
+            if (!elts && !e.shiftKey) {
+              setSelectedElements([]);
+            } else if (!elts && e.shiftKey) {
+              break;
+            } else {
+              switch (action as Rough.SelectActions) {
+                case "move":
+                  setIsMoving(true);
+                  break;
+              }
+              e.shiftKey
+                ? setSelectedElements((prevElts) => [...prevElts, ...elts!])
+                : setSelectedElements(elts!);
+            }
             break;
           case "line":
           case "rect":
-          case "circle":
+          case "ellipse":
             setIsDrawing(true);
             break;
         }
@@ -167,7 +176,7 @@ export const useCanvas = (onAction: {
                 currentDim.h,
                 options
               );
-            case "circle":
+            case "ellipse":
               return gen.ellipse(
                 startPoint.x,
                 startPoint.y,
@@ -179,6 +188,18 @@ export const useCanvas = (onAction: {
         })();
 
         roughRef.current.draw(drawable);
+      }
+      // draw selection box on selectElements
+      // get the updated element from history
+      for (const elt of selectedElements) {
+        history.forEach((prevElts) =>
+          prevElts.forEach(
+            (prevElt) =>
+              prevElt.action !== "move" &&
+              prevElt.id === elt.id &&
+              drawSelection(ctxRef.current!, prevElt)
+          )
+        );
       }
     }
   };
@@ -228,6 +249,10 @@ export const useCanvas = (onAction: {
     currentSelectActionRef.current = null;
   }, [selectedElements]);
 
+  useEffect(() => {
+    setSelectedElements([]);
+  }, [onAction.type]);
+
   // drawEffect for mouseDown/mouseMove/mouseUp
   useEffect(() => {
     console.log("effect up/move");
@@ -272,6 +297,8 @@ export const useCanvas = (onAction: {
             gen,
             options: {
               seed: getRandomInt(1, 2 ** 31),
+              preserveVertices: false, // randomize end points of lines, default: false
+              curveFitting: 0.99, // error margin for curve, 1 is a perfect curve, default: .95
             },
           }),
         },
@@ -339,7 +366,6 @@ export const useCanvas = (onAction: {
       setIsDrawing(false);
       setIsPanning(false);
       setIsMoving(false);
-      setSelectedElements([]);
 
       // add current action to history
       if (currentDrawActionRef.current) {
@@ -350,6 +376,7 @@ export const useCanvas = (onAction: {
     };
 
     const drawingSave = () => {
+      if (!currentDrawActionRef.current) return;
       setHistory((prevHistory) => {
         return [...prevHistory.slice(0, index), currentDrawActionRef.current!];
       });
@@ -358,6 +385,7 @@ export const useCanvas = (onAction: {
 
     const movingSave = () => {
       // move elements, go through all selectedElements, store necessary props in history
+      if (!currentSelectActionRef.current) return;
       const necessaryMoveProps = selectedElements.map(
         (prevProp) =>
           ({
@@ -403,15 +431,13 @@ export const useCanvas = (onAction: {
 
     const mouseMoveHandler = (e: MouseEvent) => {
       const currentPoint = computePointInCanvas(e);
-      if (!currentPoint || !e.target) return;
+      if (!currentPoint || !e.target || !ctxRef.current) return;
       (e.target as HTMLElement).style.cursor = (
         onAction.func as Rough.SelectFunc
       )({
         history,
         mousePoint: currentPoint,
         index,
-        LINE_TOLERANCE,
-        CIRCLE_TOLERANCE,
       })
         ? "move"
         : "default";
@@ -447,7 +473,7 @@ export const useCanvas = (onAction: {
   useEffect(() => {
     console.log("effect redraw");
     streamActions();
-  }, [history, scale, origin, index]);
+  }, [history, scale, origin, index, selectedElements]);
 
   // undo/redo
   useEffect(() => {
