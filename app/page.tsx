@@ -1,6 +1,6 @@
 "use client";
 
-import Canvas from "@/components/Canvas";
+import Canvas from "@components/Canvas";
 
 // Pre-rendering prevents window from existing on first paint
 

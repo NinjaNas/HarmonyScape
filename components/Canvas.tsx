@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { draw, detectBoundary } from "@/functions/canvasActionFunctions";
-import { useRemoveCtrlZoom } from "@/hooks/useRemoveCtrlZoom";
+import { draw, detectBoundary } from "@functions/canvasActionFunctions";
+import { useRemoveCtrlZoom } from "@hooks/useRemoveCtrlZoom";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
