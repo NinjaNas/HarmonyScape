@@ -1,5 +1,6 @@
 import { drawSelection } from "@functions/canvasActionFunctions";
 import { useEffect, useRef, useState } from "react";
+import { useKey, useKeyCombo } from "@rwh/react-keystrokes";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { Drawable } from "roughjs/bin/core";
 import rough from "roughjs/bundled/rough.esm";
@@ -15,7 +16,8 @@ export const useCanvas = (onAction: {
   type: string;
 }) => {
   console.log("render canvas ref");
-
+  const isUndo = useKeyCombo("control + z");
+  const isRedo = useKeyCombo("shift + z");
   const [history, setHistory] = useState<Rough.ActionHistory[][]>([]);
   const [index, setIndex] = useState<number>(0); // index is the length of states in history
   const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
@@ -475,6 +477,8 @@ export const useCanvas = (onAction: {
     streamActions();
   }, [history, scale, origin, index, selectedElements]);
 
+  console.log(isUndo);
+  console.log(isRedo);
   // undo/redo
   useEffect(() => {
     console.log("effect undo/redo");
@@ -543,12 +547,10 @@ export const useCanvas = (onAction: {
         actionIndex: index,
       };
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+      if (isUndo) {
+        console.log("undo");
         undoRedoHandler(undo);
-      } else if (
-        (e.ctrlKey && e.key === "y") ||
-        (e.metaKey && e.shiftKey && e.key === "z")
-      ) {
+      } else if (isRedo) {
         undoRedoHandler(redo);
       }
     };
@@ -558,7 +560,7 @@ export const useCanvas = (onAction: {
     return () => {
       window.removeEventListener("keydown", onPressedHandler);
     };
-  }, [history, index]);
+  }, [history, index, isUndo, isRedo]);
 
   return { canvasRef, mouseDownHandler, onWheelHandler };
 };
