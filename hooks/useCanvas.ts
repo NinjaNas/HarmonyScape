@@ -1,5 +1,5 @@
 import { drawSelection } from "@functions/canvasActionFunctions";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useKey, useKeyCombo } from "@rwh/react-keystrokes";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { Drawable } from "roughjs/bin/core";
@@ -17,7 +17,7 @@ export const useCanvas = (onAction: {
 }) => {
   console.log("render canvas ref");
   const isUndo = useKeyCombo("control + z");
-  const isRedo = useKeyCombo("shift + z");
+  const isRedo = useKeyCombo("control + y");
   const [history, setHistory] = useState<Rough.ActionHistory[][]>([]);
   const [index, setIndex] = useState<number>(0); // index is the length of states in history
   const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
@@ -546,13 +546,24 @@ export const useCanvas = (onAction: {
       actionIndex: index,
     };
 
+    let intervalId: NodeJS.Timer;
     if (isUndo) {
       console.log("undo");
-      undoRedoHandler(undo);
+      intervalId = setInterval(() => {
+        console.log("undo");
+        undoRedoHandler(undo);
+      }, 100);
     } else if (isRedo) {
-      undoRedoHandler(redo);
+      intervalId = setInterval(() => {
+        undoRedoHandler(redo);
+      }, 100);
     }
-  }, [isUndo, isRedo]);
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isUndo, isRedo, index, history]);
 
   return { canvasRef, mouseDownHandler, onWheelHandler };
 };
