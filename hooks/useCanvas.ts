@@ -532,35 +532,27 @@ export const useCanvas = (onAction: {
       }
     };
 
-    const onPressedHandler = (e: KeyboardEvent) => {
-      const undo = {
-        action: "undo" as Rough.ActionShortcuts,
-        condition: index > 0,
-        newIndex: index - 1,
-        actionIndex: index - 1,
-      };
-
-      const redo = {
-        action: "redo" as Rough.ActionShortcuts,
-        condition: index < history.length,
-        newIndex: index + 1,
-        actionIndex: index,
-      };
-
-      if (isUndo) {
-        console.log("undo");
-        undoRedoHandler(undo);
-      } else if (isRedo) {
-        undoRedoHandler(redo);
-      }
+    const undo = {
+      action: "undo" as Rough.ActionShortcuts,
+      condition: index > 0,
+      newIndex: index - 1,
+      actionIndex: index - 1,
     };
 
-    window.addEventListener("keydown", onPressedHandler);
-
-    return () => {
-      window.removeEventListener("keydown", onPressedHandler);
+    const redo = {
+      action: "redo" as Rough.ActionShortcuts,
+      condition: index < history.length,
+      newIndex: index + 1,
+      actionIndex: index,
     };
-  }, [history, index, isUndo, isRedo]);
+
+    if (isUndo) {
+      console.log("undo");
+      undoRedoHandler(undo);
+    } else if (isRedo) {
+      undoRedoHandler(redo);
+    }
+  }, [isUndo, isRedo]);
 
   return { canvasRef, mouseDownHandler, onWheelHandler };
 };
