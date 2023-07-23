@@ -38,6 +38,8 @@ export const useCanvas = (onAction: {
     newDim?: Dim;
   }>(null);
   const startingPointRef = useRef<null | Point>(null);
+  const indexRef = useRef(index);
+  const historyRef = useRef(history);
 
   const gen = rough.generator();
 
@@ -479,91 +481,111 @@ export const useCanvas = (onAction: {
 
   console.log(isUndo);
   console.log(isRedo);
+
+  useEffect(() => {
+    indexRef.current = index;
+    historyRef.current = history;
+  }, [index, history]);
+
+  const undoRedoHandler = useCallback((actionString: Rough.ActionShortcuts) => {
+    const { action, condition, actionIndex, newIndex } = (() => {
+      switch (actionString) {
+        case "undo": {
+          return {
+            action: "undo" as Rough.ActionShortcuts,
+            condition: indexRef.current > 0,
+            newIndex: indexRef.current - 1,
+            actionIndex: indexRef.current - 1,
+          };
+        }
+        case "redo": {
+          return {
+            action: "redo" as Rough.ActionShortcuts,
+            condition: indexRef.current < historyRef.current.length,
+            newIndex: indexRef.current + 1,
+            actionIndex: indexRef.current,
+          };
+        }
+      }
+    })();
+
+    if (condition) {
+      // if there is a move action at current index, pass props to canvas elt to undo action
+      for (const props of historyRef.current[actionIndex]!) {
+        if (props && props.action === "move") {
+          const { nextStartPoint, nextDim } = (() => {
+            switch (action as Rough.ActionShortcuts) {
+              case "undo":
+                return {
+                  nextStartPoint: props.startPoint,
+                  nextDim: props.currentDim,
+                };
+              case "redo":
+                return {
+                  nextStartPoint: (props as Rough.EditProps).newStartPoint,
+                  nextDim: (props as Rough.EditProps).newDim,
+                };
+            }
+          })();
+
+          setHistory(
+            historyRef.current.map((prevHistory) =>
+              prevHistory.map((prevElts) =>
+                // note that canvas elts and move actions have the same id to reference each other
+                prevElts.action !== "move" && props.id === prevElts.id
+                  ? {
+                      ...prevElts,
+                      ...(nextStartPoint && {
+                        startPoint: nextStartPoint,
+                      }),
+                      ...(nextDim && {
+                        currentDim: nextDim,
+                      }),
+                    }
+                  : prevElts
+              )
+            )
+          );
+        }
+      }
+      setIndex(newIndex);
+    }
+  }, []);
+
   // undo/redo
   useEffect(() => {
     console.log("effect undo/redo");
 
-    const undoRedoHandler = ({
-      action,
-      condition,
-      newIndex,
-      actionIndex,
-    }: Rough.UndoRedoHandler) => {
-      if (condition) {
-        // if there is a move action at current index, pass props to canvas elt to undo action
-        for (const props of history[actionIndex]!) {
-          if (props && props.action === "move") {
-            const { nextStartPoint, nextDim } = (() => {
-              switch (action as Rough.ActionShortcuts) {
-                case "undo":
-                  return {
-                    nextStartPoint: props.startPoint,
-                    nextDim: props.currentDim,
-                  };
-                case "redo":
-                  return {
-                    nextStartPoint: (props as Rough.EditProps).newStartPoint,
-                    nextDim: (props as Rough.EditProps).newDim,
-                  };
-              }
-            })();
-
-            setHistory(
-              history.map((prevHistory) =>
-                prevHistory.map((prevElts) =>
-                  // note that canvas elts and move actions have the same id to reference each other
-                  prevElts.action !== "move" && props.id === prevElts.id
-                    ? {
-                        ...prevElts,
-                        ...(nextStartPoint && {
-                          startPoint: nextStartPoint,
-                        }),
-                        ...(nextDim && {
-                          currentDim: nextDim,
-                        }),
-                      }
-                    : prevElts
-                )
-              )
-            );
-          }
-        }
-        setIndex(newIndex);
-      }
-    };
-
-    const undo = {
-      action: "undo" as Rough.ActionShortcuts,
-      condition: index > 0,
-      newIndex: index - 1,
-      actionIndex: index - 1,
-    };
-
-    const redo = {
-      action: "redo" as Rough.ActionShortcuts,
-      condition: index < history.length,
-      newIndex: index + 1,
-      actionIndex: index,
-    };
-
-    let intervalId: NodeJS.Timer;
     if (isUndo) {
-      console.log("undo");
-      intervalId = setInterval(() => {
-        console.log("undo");
-        undoRedoHandler(undo);
-      }, 100);
-    } else if (isRedo) {
-      intervalId = setInterval(() => {
-        undoRedoHandler(redo);
-      }, 100);
+      // perform the action immediately
+      undoRedoHandler("undo");
+
+      // then perform the action at an interval
+      const intervalId = setInterval(() => {
+        undoRedoHandler("undo");
+      }, 100); // Adjust this value to control the delay
+
+      // clear the interval when the component unmounts or when isUndo changes
+      return () => clearInterval(intervalId);
     }
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [isUndo, isRedo, index, history]);
+  }, [isUndo]);
+
+  useEffect(() => {
+    console.log("effect undo/redo");
+
+    if (isRedo) {
+      // perform the action immediately
+      undoRedoHandler("redo");
+
+      // then perform the action at an interval
+      const intervalId = setInterval(() => {
+        undoRedoHandler("redo");
+      }, 100); // adjust this value to control the delay
+
+      // clear the interval when the component unmounts or when isRedo changes
+      return () => clearInterval(intervalId);
+    }
+  }, [isRedo]);
 
   return { canvasRef, mouseDownHandler, onWheelHandler };
 };
