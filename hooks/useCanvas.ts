@@ -16,8 +16,8 @@ export const useCanvas = (onAction: {
   type: string;
 }) => {
   console.log("render canvas ref");
-  const isUndo = useKeyCombo("control + z");
-  const isRedo = useKeyCombo("control + y");
+  const isUndo = useKeyCombo("control + z") || useKeyCombo("meta + z");
+  const isRedo = useKeyCombo("control + y") || useKeyCombo("meta + shift + z");
   const [history, setHistory] = useState<Rough.ActionHistory[][]>([]);
   const [index, setIndex] = useState<number>(0); // index is the length of states in history
   const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
@@ -563,7 +563,7 @@ export const useCanvas = (onAction: {
       // then perform the action at an interval
       const intervalId = setInterval(() => {
         undoRedoHandler("undo");
-      }, 100); // Adjust this value to control the delay
+      }, 150); // Adjust this value to control the delay
 
       // clear the interval when the component unmounts or when isUndo changes
       return () => clearInterval(intervalId);
@@ -580,7 +580,7 @@ export const useCanvas = (onAction: {
       // then perform the action at an interval
       const intervalId = setInterval(() => {
         undoRedoHandler("redo");
-      }, 100); // adjust this value to control the delay
+      }, 150); // adjust this value to control the delay
 
       // clear the interval when the component unmounts or when isRedo changes
       return () => clearInterval(intervalId);
