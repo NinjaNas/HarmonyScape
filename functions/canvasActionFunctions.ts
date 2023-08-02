@@ -1,4 +1,5 @@
 import { Drawable } from "roughjs/bin/core";
+import { LINE_TOLERANCE, CIRCLE_TOLERANCE } from "@constants/canvasConstants";
 
 export function draw({
   history,
@@ -29,7 +30,7 @@ export function draw({
       case "rect":
         return gen.rectangle(startPoint.x, startPoint.y, dim.w, dim.h, options);
 
-      case "circle":
+      case "ellipse":
         const x = (currentPoint.x + startPoint.x) / 2;
         const y = (currentPoint.y + startPoint.y) / 2;
 
@@ -53,8 +54,6 @@ export const detectBoundary = ({
   history,
   index,
   mousePoint,
-  CIRCLE_TOLERANCE,
-  LINE_TOLERANCE,
 }: Rough.Select) => {
   let eltArr: Rough.ActionHistory[] = [];
 
@@ -66,7 +65,7 @@ export const detectBoundary = ({
       const flag = (() => {
         switch (action as Rough.ActionDraw) {
           case "line": {
-            const { x, y } = startPoint;
+            const { x, y }: Point = startPoint;
             const currentPoint: Point = {
               x: currentDim.w + x,
               y: currentDim.h + y,
@@ -74,12 +73,11 @@ export const detectBoundary = ({
             return detectLine({
               lines: [{ startPoint, endPoint: currentPoint }],
               mousePoint,
-              LINE_TOLERANCE,
             });
           }
           case "rect": {
-            const { x, y } = startPoint;
-            const { w, h } = currentDim;
+            const { x, y }: Point = startPoint;
+            const { w, h }: Dim = currentDim;
             const tr: Point = { x: x + w, y };
             const bl: Point = { x, y: y + h };
             const br: Point = {
@@ -95,19 +93,38 @@ export const detectBoundary = ({
                 { startPoint: bl, endPoint: br },
               ],
               mousePoint,
-              LINE_TOLERANCE,
             });
           }
-          case "circle": {
-            const { x, y } = startPoint;
-            const { w, h } = currentDim;
-            const a = w / 2;
-            const b = h / 2;
+          case "ellipse": {
+            //https://www.geeksforgeeks.org/check-if-a-point-is-inside-outside-or-on-the-ellipse/#
+            const { x, y }: Point = startPoint;
+            const { w, h }: Dim = currentDim;
+            let a, b, theta;
 
-            const equation =
-              (mousePoint.x - x) ** 2 / a ** 2 +
-              (mousePoint.y - y) ** 2 / b ** 2;
-            return Math.abs(equation - 1) < CIRCLE_TOLERANCE;
+            if (w > h) {
+              a = w / 2;
+              b = h / 2;
+              theta = 0; // Major axis is horizontal
+            } else {
+              a = h / 2;
+              b = w / 2;
+              theta = Math.PI / 2; // Major axis is vertical
+            }
+
+            const distance =
+              Math.pow(
+                (mousePoint.x - x) * Math.cos(theta) +
+                  (mousePoint.y - y) * Math.sin(theta),
+                2
+              ) /
+                Math.pow(a, 2) +
+              Math.pow(
+                (mousePoint.x - x) * Math.sin(theta) -
+                  (mousePoint.y - y) * Math.cos(theta),
+                2
+              ) /
+                Math.pow(b, 2);
+            return Math.abs(distance - 1) < CIRCLE_TOLERANCE;
           }
         }
       })();
@@ -115,10 +132,11 @@ export const detectBoundary = ({
       if (flag) eltArr = [...eltArr, elt];
     }
   }
-  return eltArr.length ? eltArr : null;
+  // only return one element
+  return { elts: eltArr.length ? [eltArr[0]] : null, action: "move" };
 };
 
-const detectLine = ({ lines, mousePoint, LINE_TOLERANCE }: DetectLine) => {
+const detectLine = ({ lines, mousePoint }: DetectLine) => {
   let flag = false;
 
   for (const { startPoint, endPoint } of lines) {
@@ -134,3 +152,62 @@ const detectLine = ({ lines, mousePoint, LINE_TOLERANCE }: DetectLine) => {
 
 const distance = ({ a, b }: Distance) =>
   Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+
+export const drawSelection = (
+  ctx: CanvasRenderingContext2D,
+  { action, startPoint, currentDim }: Rough.ActionHistory
+) => {
+  switch (action) {
+    case "line": {
+      const currentPoint: Point = {
+        x: currentDim.w + startPoint.x,
+        y: currentDim.h + startPoint.y,
+      };
+      drawSelectionHelper(ctx, [startPoint, currentPoint]);
+      break;
+    }
+    case "rect": {
+      const currentPoint: Point = {
+        x: currentDim.w + startPoint.x,
+        y: currentDim.h + startPoint.y,
+      };
+
+      drawSelectionHelper(ctx, [
+        startPoint,
+        currentPoint,
+        { x: startPoint.x, y: currentPoint.y },
+        { x: currentPoint.x, y: startPoint.y },
+      ]);
+      break;
+    }
+    case "ellipse": {
+      const start: Point = {
+        x: startPoint.x - currentDim.w / 2,
+        y: startPoint.y - currentDim.h / 2,
+      };
+      const currentPoint: Point = {
+        x: startPoint.x + currentDim.w / 2,
+        y: startPoint.y + currentDim.h / 2,
+      };
+
+      drawSelectionHelper(ctx, [
+        start,
+        currentPoint,
+        { x: start.x, y: currentPoint.y },
+        { x: currentPoint.x, y: start.y },
+      ]);
+      break;
+    }
+  }
+};
+
+const drawSelectionHelper = (
+  ctx: CanvasRenderingContext2D,
+  points: Point[]
+) => {
+  for (const p of points) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 40, 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+};

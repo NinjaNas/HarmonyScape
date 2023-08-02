@@ -28,7 +28,8 @@
       "@css": ["./app/globals.css"],
       "@hooks/*": ["./hooks/*"],
       "@functions/*": ["./functions/*"],
-      "@components/*": ["./components/*"]
+      "@components/*": ["./components/*"],
+      "@constants/*": ["./constants/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

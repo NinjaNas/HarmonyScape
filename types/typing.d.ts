@@ -15,7 +15,6 @@ type TestLines = {
 type DetectLine = {
   lines: TestLines[];
   mousePoint: Point;
-  LINE_TOLERANCE: number;
 };
 
 type Distance = {
@@ -26,9 +25,10 @@ type Distance = {
 declare namespace Rough {
   type Action = DrawFunc | SelectFunc;
   type ActionHistory = DrawProps | EditProps;
-  type ActionDraw = "line" | "rect" | "circle";
+  type ActionDraw = "line" | "rect" | "ellipse";
   type ActionShortcuts = "undo" | "redo";
   type CanvasActions = ActionDraw | "select";
+  type SelectActions = "move" | "resize" | "rotate";
 
   type DrawFunc = ({}: Draw) => DrawProps;
 
@@ -44,6 +44,8 @@ declare namespace Rough {
       seed?: number;
       stroke?: string;
       strokeWidth?: number;
+      preserveVertices?: boolean;
+      curveFitting?: number;
     };
   };
 
@@ -65,11 +67,9 @@ declare namespace Rough {
     history: Rough.ActionHistory[][];
     index: number;
     mousePoint: Point;
-    CIRCLE_TOLERANCE: number;
-    LINE_TOLERANCE: number;
   };
 
-  type SelectProps = null | Rough.DrawProps[];
+  type SelectProps = { elts: null | Rough.DrawProps[]; action: type };
 
   type EditProps = {
     id: number;

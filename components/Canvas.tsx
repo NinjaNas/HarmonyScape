@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { draw, detectBoundary } from "@/functions/canvasActionFunctions";
-import { useRemoveCtrlZoom } from "@/hooks/useRemoveCtrlZoom";
+import { draw, detectBoundary } from "@functions/canvasActionFunctions";
+import { useRemoveCtrlZoom } from "@hooks/useRemoveCtrlZoom";
 
 export default function Canvas(): React.ReactNode {
   console.log("render canvas component");
@@ -31,7 +31,7 @@ export default function Canvas(): React.ReactNode {
         break;
       case "line":
       case "rect":
-      case "circle":
+      case "ellipse":
         setAction(() => ({
           func: draw as Rough.DrawFunc,
           type: e.target.value as Rough.CanvasActions,
@@ -74,10 +74,10 @@ export default function Canvas(): React.ReactNode {
           <label>rectangle</label>
           <input
             type="radio"
-            id="circle"
+            id="ellipse"
             name="action"
-            value="circle"
-            checked={action.type === "circle"}
+            value="ellipse"
+            checked={action.type === "ellipse"}
             onChange={actionHandler}
           />
           <label>circle</label>
