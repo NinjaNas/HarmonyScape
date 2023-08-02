@@ -1,6 +1,6 @@
 import { drawSelection } from "@functions/canvasActionFunctions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useKey, useKeyCombo } from "@rwh/react-keystrokes";
+import { useKeyCombo } from "@rwh/react-keystrokes";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { Drawable } from "roughjs/bin/core";
 import rough from "roughjs/bundled/rough.esm";
@@ -16,8 +16,10 @@ export const useCanvas = (onAction: {
   type: string;
 }) => {
   console.log("render canvas ref");
-  const isUndo = useKeyCombo("control + z") || useKeyCombo("meta + z");
-  const isRedo = useKeyCombo("control + y") || useKeyCombo("meta + shift + z");
+  const isUndo = useKeyCombo("control + z");
+  const isUndoMac = useKeyCombo("meta + z");
+  const isRedo = useKeyCombo("control + y");
+  const isRedoMac = useKeyCombo("meta + shift + z");
   const [history, setHistory] = useState<Rough.ActionHistory[][]>([]);
   const [index, setIndex] = useState<number>(0); // index is the length of states in history
   const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
@@ -33,10 +35,7 @@ export const useCanvas = (onAction: {
   const ctxRef = useRef<null | CanvasRenderingContext2D>(null);
   const roughRef = useRef<null | RoughCanvas>(null);
   const currentDrawActionRef = useRef<null | Rough.ActionHistory[]>(null);
-  const currentSelectActionRef = useRef<null | {
-    newStartPoint?: Point;
-    newDim?: Dim;
-  }>(null);
+  const currentSelectActionRef = useRef<{ [id: string]: Point }>({});
   const startingPointRef = useRef<null | Point>(null);
   const indexRef = useRef(index);
   const historyRef = useRef(history);
@@ -77,9 +76,17 @@ export const useCanvas = (onAction: {
                   setIsMoving(true);
                   break;
               }
+              console.log(selectedElements);
               e.shiftKey
-                ? setSelectedElements((prevElts) => [...prevElts, ...elts!])
+                ? setSelectedElements((prevElts) => {
+                    const ids = new Set(prevElts.map((i) => i.id));
+                    return [
+                      ...prevElts,
+                      ...elts!.filter((i) => !ids.has(i.id)),
+                    ];
+                  })
                 : setSelectedElements(elts!);
+              console.log(selectedElements);
             }
             break;
           case "line":
@@ -250,7 +257,7 @@ export const useCanvas = (onAction: {
 
   // reset select action on seletedElements update
   useEffect(() => {
-    currentSelectActionRef.current = null;
+    currentSelectActionRef.current = {};
   }, [selectedElements]);
 
   useEffect(() => {
@@ -334,34 +341,35 @@ export const useCanvas = (onAction: {
     };
 
     const movingObj = ({ currentPoint }: Rough.Points) => {
+      console.log(selectedElements);
+      let newHistory = [...history];
       for (const { id, startPoint } of selectedElements) {
         if (!startingPointRef.current) return;
         const offset = {
           x: startingPointRef.current.x - startPoint.x,
           y: startingPointRef.current.y - startPoint.y,
         };
+
         const newStartPoint = {
           x: currentPoint.x - offset.x,
           y: currentPoint.y - offset.y,
         };
-        currentSelectActionRef.current = {
-          newStartPoint,
-        };
 
-        setHistory(
-          history.map((prevElts) =>
-            prevElts.map((prevElt) =>
-              // note that canvas elts and move actions have the same id to reference each other
-              prevElt.action !== "move" && prevElt.id === id
-                ? {
-                    ...prevElt,
-                    // offset so mouse stays in the same place
-                    startPoint: newStartPoint,
-                  }
-                : prevElt
-            )
+        currentSelectActionRef.current[id] = newStartPoint;
+
+        newHistory = newHistory.map((prevElts) =>
+          prevElts.map((prevElt) =>
+            // note that canvas elts and move actions have the same id to reference each other
+            prevElt.action !== "move" && prevElt.id === id
+              ? {
+                  ...prevElt,
+                  // offset so mouse stays in the same place
+                  startPoint: newStartPoint,
+                }
+              : prevElt
           )
         );
+        setHistory(newHistory);
       }
     };
 
@@ -390,19 +398,32 @@ export const useCanvas = (onAction: {
     const movingSave = () => {
       // move elements, go through all selectedElements, store necessary props in history
       if (!currentSelectActionRef.current) return;
+      console.log(selectedElements);
       const necessaryMoveProps = selectedElements.map(
         (prevProp) =>
           ({
             id: prevProp.id,
             action: "move",
             startPoint: prevProp.startPoint,
-            newStartPoint: currentSelectActionRef.current!.newStartPoint,
+            newStartPoint: currentSelectActionRef.current[prevProp.id],
           }) as Rough.EditProps
       );
 
       setHistory((prevHistory) => {
         return [...prevHistory.slice(0, index), necessaryMoveProps];
       });
+
+      setSelectedElements(
+        selectedElements.map(
+          (prevElt) =>
+            ({
+              ...prevElt,
+              ...(currentSelectActionRef.current[prevElt.id] && {
+                startPoint: currentSelectActionRef.current[prevElt.id],
+              }),
+            }) as Rough.EditProps
+        )
+      );
       setIndex((i) => i + 1);
     };
 
@@ -435,14 +456,20 @@ export const useCanvas = (onAction: {
 
     const mouseMoveHandler = (e: MouseEvent) => {
       const currentPoint = computePointInCanvas(e);
-      if (!currentPoint || !e.target || !ctxRef.current) return;
+      if (
+        !currentPoint ||
+        !e.target ||
+        !ctxRef.current ||
+        onAction.type !== "select"
+      )
+        return;
       (e.target as HTMLElement).style.cursor = (
         onAction.func as Rough.SelectFunc
       )({
         history,
         mousePoint: currentPoint,
         index,
-      })
+      }).elts
         ? "move"
         : "default";
     };
@@ -510,6 +537,7 @@ export const useCanvas = (onAction: {
     })();
 
     if (condition) {
+      let newHistory = [...historyRef.current];
       // if there is a move action at current index, pass props to canvas elt to undo action
       for (const props of historyRef.current[actionIndex]!) {
         if (props && props.action === "move") {
@@ -528,25 +556,24 @@ export const useCanvas = (onAction: {
             }
           })();
 
-          setHistory(
-            historyRef.current.map((prevHistory) =>
-              prevHistory.map((prevElts) =>
-                // note that canvas elts and move actions have the same id to reference each other
-                prevElts.action !== "move" && props.id === prevElts.id
-                  ? {
-                      ...prevElts,
-                      ...(nextStartPoint && {
-                        startPoint: nextStartPoint,
-                      }),
-                      ...(nextDim && {
-                        currentDim: nextDim,
-                      }),
-                    }
-                  : prevElts
-              )
+          newHistory = newHistory.map((prevHistory) =>
+            prevHistory.map((prevElts) =>
+              // note that canvas elts and move actions have the same id to reference each other
+              prevElts.action !== "move" && props.id === prevElts.id
+                ? {
+                    ...prevElts,
+                    ...(nextStartPoint && {
+                      startPoint: nextStartPoint,
+                    }),
+                    ...(nextDim && {
+                      currentDim: nextDim,
+                    }),
+                  }
+                : prevElts
             )
           );
         }
+        setHistory(newHistory);
       }
       setIndex(newIndex);
     }
@@ -556,13 +583,15 @@ export const useCanvas = (onAction: {
   useEffect(() => {
     console.log("effect undo/redo");
 
-    if (isUndo) {
+    if (isUndo || isUndoMac) {
       // perform the action immediately
       undoRedoHandler("undo");
+      setSelectedElements([]);
 
       // then perform the action at an interval
       const intervalId = setInterval(() => {
         undoRedoHandler("undo");
+        setSelectedElements([]);
       }, 150); // Adjust this value to control the delay
 
       // clear the interval when the component unmounts or when isUndo changes
@@ -573,13 +602,15 @@ export const useCanvas = (onAction: {
   useEffect(() => {
     console.log("effect undo/redo");
 
-    if (isRedo) {
+    if (isRedo || isRedoMac) {
       // perform the action immediately
       undoRedoHandler("redo");
+      setSelectedElements([]);
 
       // then perform the action at an interval
       const intervalId = setInterval(() => {
         undoRedoHandler("redo");
+        setSelectedElements([]);
       }, 150); // adjust this value to control the delay
 
       // clear the interval when the component unmounts or when isRedo changes
