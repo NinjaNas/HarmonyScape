@@ -399,32 +399,46 @@ export const useCanvas = (onAction: {
       // move elements, go through all selectedElements, store necessary props in history
       if (!currentSelectActionRef.current) return;
       console.log(selectedElements);
-      const necessaryMoveProps = selectedElements.map(
-        (prevProp) =>
-          ({
-            id: prevProp.id,
-            action: "move",
-            startPoint: prevProp.startPoint,
-            newStartPoint: currentSelectActionRef.current[prevProp.id],
-          }) as Rough.EditProps
-      );
-
-      setHistory((prevHistory) => {
-        return [...prevHistory.slice(0, index), necessaryMoveProps];
-      });
-
-      setSelectedElements(
-        selectedElements.map(
-          (prevElt) =>
+      const necessaryMoveProps = selectedElements
+        .filter((prevProp) => {
+          // only include elements that have been moved
+          const newStartPoint = currentSelectActionRef.current[prevProp.id];
+          return (
+            newStartPoint &&
+            (newStartPoint.x !== prevProp.startPoint.x ||
+              newStartPoint.y !== prevProp.startPoint.y)
+          );
+        })
+        .map(
+          (prevProp) =>
+            // enough data to undo and redo an element by giving it either the old or new startPoint
             ({
-              ...prevElt,
-              ...(currentSelectActionRef.current[prevElt.id] && {
-                startPoint: currentSelectActionRef.current[prevElt.id],
-              }),
+              id: prevProp.id,
+              action: "move",
+              startPoint: prevProp.startPoint,
+              newStartPoint: currentSelectActionRef.current[prevProp.id],
             }) as Rough.EditProps
-        )
-      );
-      setIndex((i) => i + 1);
+        );
+      // if necessaryMoveProps is empty then nothing has changed
+      if (necessaryMoveProps.length) {
+        setHistory((prevHistory) => {
+          return [...prevHistory.slice(0, index), necessaryMoveProps];
+        });
+
+        // update selectedElement if currentSelectActionRef exists with the latest startPoint
+        setSelectedElements(
+          selectedElements.map(
+            (prevElt) =>
+              ({
+                ...prevElt,
+                ...(currentSelectActionRef.current[prevElt.id] && {
+                  startPoint: currentSelectActionRef.current[prevElt.id],
+                }),
+              }) as Rough.EditProps
+          )
+        );
+        setIndex((i) => i + 1);
+      }
     };
 
     // setup Mouse Handler
