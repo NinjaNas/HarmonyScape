@@ -1,4 +1,4 @@
-# [ WIP ] HarmonyScape
+# [WIP] HarmonyScape
 
 ## Technologies Used:
 
