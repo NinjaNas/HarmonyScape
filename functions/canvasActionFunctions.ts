@@ -1,5 +1,11 @@
 import { Drawable } from "roughjs/bin/core";
-import { LINE_TOLERANCE, CIRCLE_TOLERANCE } from "@constants/canvasConstants";
+import {
+  LINE_TOLERANCE,
+  CIRCLE_TOLERANCE,
+  IS_LOG,
+  LOG_TAG,
+  FN_TAG,
+} from "@constants/canvasConstants";
 
 export function draw({
   history,
@@ -211,3 +217,117 @@ const drawSelectionHelper = (
     ctx.stroke();
   }
 };
+
+export const getRandomInt = (min: number, max: number) => {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  // The maximum is exclusive and the minimum is inclusive
+  return Math.floor(Math.random() * (max - min) + min);
+};
+
+// logs the func name and args along with a tag, Ex: [Tag] fn: name, args: []
+// when spreadArgs is true, args will be spread out using the spread operator
+export function logFn({
+  func,
+  options: {
+    name = func.name,
+    tag = FN_TAG,
+    log = IS_LOG,
+    spreadArgs = true,
+  } = {
+    name: func.name,
+    tag: FN_TAG,
+    log: IS_LOG,
+    spreadArgs: true,
+  },
+}: logFnProps) {
+  return function (...args: any[]) {
+    if (log) {
+      if (args.length) {
+        console.info(
+          `%c%s%c fn%c: %s, %cargs%c:%o`,
+          "color: deepskyblue; font-weight: bold;",
+          `${tag ? `[${tag}]` : ""}`,
+          "color: coral;",
+          "color: lightgray;",
+          name,
+          "color: coral;",
+          "color: lightgray;",
+          ...(spreadArgs ? [...args] : [args])
+        );
+      } else {
+        console.info(
+          `%c%s%c fn%c: %s`,
+          "color: deepskyblue; font-weight: bold;",
+          `${tag ? `[${tag}]` : ""}`,
+          "color: coral;",
+          "color: lightgray;",
+          name
+        );
+      }
+    }
+    try {
+      return func(...args);
+    } catch (error) {
+      console.error(name, error);
+      throw error;
+    }
+  };
+}
+
+// logs any object(s) along with a tag and an optional key/value pair, Ex: [Tag] key: value, value
+// when spread is true, if values are an array of object that array will be spread out
+export function log({
+  vals,
+  options: { tag = LOG_TAG, log = IS_LOG, spread = true } = {
+    tag: LOG_TAG,
+    log: IS_LOG,
+    spread: true,
+  },
+}: logProps) {
+  if (!log) return;
+  let tokens = "";
+  let formattedVals: any[] = [];
+  if (
+    Array.isArray(vals) &&
+    (vals.some(
+      (val) => typeof val === "object" && "key" in val && "val" in val
+    ) ||
+      spread) &&
+    vals.length
+  ) {
+    vals.forEach((val: any) => {
+      if (typeof val === "object" && "key" in val && "val" in val) {
+        // remove extra space from object but not from anything else
+        typeof val.val === "object"
+          ? (tokens += "%c%s%c:%o, ")
+          : (tokens += "%c%s%c: %s, ");
+        formattedVals.push(
+          "color: coral;",
+          val.key,
+          "color: lightgray;",
+          val.val
+        );
+      } else if (typeof val === "object" && spread && val.length) {
+        val.forEach((val: any) => {
+          tokens += "%c%o, ";
+          formattedVals.push("color: lightgray;", val);
+        });
+      } else {
+        tokens += "%c%o, ";
+        formattedVals.push("color: lightgray;", val);
+      }
+    });
+    // remove trailing whitespace and comma
+    tokens = tokens.trim().replace(/,$/, "");
+  } else {
+    tokens += "%c%o";
+    formattedVals = ["color: lightgray;", vals];
+  }
+  console.info(
+    `%c[%s] ${tokens}`,
+    "color: deepskyblue; font-weight: bold;",
+    tag,
+    ...formattedVals
+  );
+}

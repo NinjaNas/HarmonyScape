@@ -4,6 +4,34 @@ declare module "roughjs/bundled/rough.esm";
 type Point = { x: number; y: number; x0?: number; y0?: number };
 type Dim = { w: number; h: number };
 
+type funcDebounceProps = {
+  funcs: (() => void)[];
+  delay: number;
+};
+
+type logFnOptions = {
+  name?: string;
+  tag?: string;
+  log?: boolean;
+  spreadArgs?: boolean;
+};
+
+type logFnProps = {
+  func: (...args: any[]) => any;
+  options?: logFnOptions;
+};
+
+type logOptions = {
+  tag?: string;
+  log?: boolean;
+  spread?: boolean;
+};
+
+type logProps = {
+  vals: any | any[] | { key: string; val: any }[];
+  options?: logOptions;
+};
+
 // useWindowResize
 type WindowSize = { innerWidth: number; innerHeight: number };
 

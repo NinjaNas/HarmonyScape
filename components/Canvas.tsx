@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
-import { draw, detectBoundary } from "@functions/canvasActionFunctions";
+import {
+  draw,
+  detectBoundary,
+  log,
+  logFn,
+} from "@functions/canvasActionFunctions";
 import { useRemoveCtrlZoom } from "@hooks/useRemoveCtrlZoom";
 
 export default function Canvas(): React.ReactNode {
-  console.log("render canvas component");
+  log({ vals: "Canvas.tsx", options: { tag: "Render" } });
   const [action, setAction] = useState<{
     func: null | Rough.Action;
     type: Rough.CanvasActions;
@@ -19,29 +24,34 @@ export default function Canvas(): React.ReactNode {
   const windowSize = useWindowResize();
   useRemoveCtrlZoom();
 
-  const actionHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("action");
-
-    switch (e.target.value as Rough.CanvasActions) {
-      case "select":
-        setAction(() => ({
-          func: detectBoundary as Rough.SelectFunc,
-          type: "select",
-        }));
-        break;
-      case "line":
-      case "rect":
-      case "ellipse":
-        setAction(() => ({
-          func: draw as Rough.DrawFunc,
-          type: e.target.value as Rough.CanvasActions,
-        }));
-        break;
-    }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const actionHandler = useCallback(
+    logFn({
+      options: { name: "action", log: true },
+      func: (e: React.ChangeEvent<HTMLInputElement>) => {
+        switch (e.target.value as Rough.CanvasActions) {
+          case "select":
+            setAction(() => ({
+              func: detectBoundary as Rough.SelectFunc,
+              type: "select",
+            }));
+            break;
+          case "line":
+          case "rect":
+          case "ellipse":
+            setAction(() => ({
+              func: draw as Rough.DrawFunc,
+              type: e.target.value as Rough.CanvasActions,
+            }));
+            break;
+        }
+      },
+    }),
+    []
+  );
 
   if (windowSize) {
-    console.log("window load");
+    log({ vals: "window loaded", options: { tag: "Window" } });
     return (
       <>
         <div className="fixed">
