@@ -9,7 +9,7 @@ const LINE_TOLERANCE: number = 1;
 const CIRCLE_TOLERANCE: number = 0.03;
 const DELAY: number = 150;
 const GEN: RoughGenerator = rough.generator();
-const IS_LOG: boolean = true;
+const IS_LOG: boolean = false;
 const FN_TAG: string = "Handler";
 const LOG_TAG: string = "Effect";
 
