@@ -58,7 +58,7 @@ declare namespace Rough {
 	type CanvasActions = ActionDraw | "select";
 	type SelectActions = "move" | "resize" | "rotate";
 
-	type DrawFunc = ({}: Draw) => DrawProps;
+	type DrawFunc = ({}: Draw) => DrawProps[];
 
 	type Draw = {
 		history: Rough.ActionHistory[][];
