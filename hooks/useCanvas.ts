@@ -3,6 +3,8 @@ import rough from "roughjs/bundled/rough.esm";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { Drawable } from "roughjs/bin/core";
 import {
+  calcPoints,
+  drawMultiSelection,
   drawSelection,
   getRandomInt,
   log,
@@ -31,6 +33,7 @@ export const useCanvas = (onAction: {
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [isMultiSelect, setIsMultiSelect] = useState<boolean>(false);
   const [selectedElements, setSelectedElements] = useState<
     Rough.ActionHistory[]
   >([]);
@@ -39,7 +42,14 @@ export const useCanvas = (onAction: {
   const ctxRef = useRef<null | CanvasRenderingContext2D>(null);
   const roughRef = useRef<null | RoughCanvas>(null);
   const currentDrawActionRef = useRef<null | Rough.ActionHistory[]>(null);
-  const currentSelectActionRef = useRef<{ [id: string]: Point }>({});
+  const currentMultiSelectBoxRef = useRef<{
+    initial: Rough.Points;
+    update: Rough.Points;
+  }>({
+    initial: { startPoint: { x: 0, y: 0 }, currentPoint: { x: 0, y: 0 } },
+    update: { startPoint: { x: 0, y: 0 }, currentPoint: { x: 0, y: 0 } },
+  });
+  const currentMoveActionRef = useRef<{ [id: string]: Point }>({});
   const startingPointRef = useRef<null | Point>(null);
   const historyRef = useRef(history);
   const indexRef = useRef(index);
@@ -47,15 +57,29 @@ export const useCanvas = (onAction: {
   log({ vals: "useCanvas.tsx", options: { tag: "Render" } });
   log({
     vals: [{ key: "size", val: index }, history],
-    options: { tag: "History" },
+    options: { tag: "History", log: true, spread: false },
   });
   log({
-    vals: [{ key: "size", val: selectedElements.length }, selectedElements],
-    options: { tag: "Selected", spread: false },
+    vals: [
+      { key: "index", val: selectedElements.length },
+      selectedElements,
+      { key: "isMulti", val: isMultiSelect },
+      { key: "isMove", val: isMoving },
+      { key: "moveRef", val: currentMoveActionRef.current },
+      {
+        key: "multiStart",
+        val: currentMultiSelectBoxRef.current?.update.startPoint,
+      },
+      {
+        key: "multiCurrent",
+        val: currentMultiSelectBoxRef.current?.update.currentPoint,
+      },
+    ],
+    options: { tag: "Selected", spread: false, log: true },
   });
 
   const selectHelper = logFn({
-    options: { name: "selectHelper", log: true, tag: "Helper" },
+    options: { name: "selectHelper", tag: "Helper" },
     func: ({
       e,
       point,
@@ -71,26 +95,34 @@ export const useCanvas = (onAction: {
       });
       if (!elts && !e.shiftKey) {
         setSelectedElements([]);
-      } else if (!elts && e.shiftKey) {
+        // currentMultiSelectBoxRef.current = null;
+        setIsMultiSelect(true);
+      } else if (!elts && (e.shiftKey || selectedElements.length > 1)) {
         return;
       } else {
         switch (action as Rough.SelectActions) {
           case "move":
+            setIsMultiSelect(false);
+            // currentMultiSelectBoxRef.current = calcPoints(elts as Rough.DrawProps);
             setIsMoving(true);
             break;
         }
-        e.shiftKey
-          ? setSelectedElements((prevElts) => {
-              const ids = new Set(prevElts.map((i) => i.id));
-              return [...prevElts, ...elts!.filter((i) => !ids.has(i.id))];
-            })
-          : setSelectedElements(elts!);
+        // if shiftKey unique selectElements are added, else add one elt
+        if (e.shiftKey) {
+          setSelectedElements((prevElts) => {
+            const ids = new Set(prevElts.map((i) => i.id));
+            return [...prevElts, ...[elts!].filter((i) => !ids.has(i.id))];
+          });
+        } else if (elts && selectedElements.length > 1) {
+        } else {
+          setSelectedElements([elts!]);
+        }
       }
     },
   });
 
   const mouseDownHandler = logFn({
-    options: { name: "mouseDown", log: true },
+    options: { name: "mouseDown" },
     func: (e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {
       const point = computePointInCanvas(e.nativeEvent);
       if (!point) return;
@@ -122,7 +154,7 @@ export const useCanvas = (onAction: {
 
   // scroll and ctrl+wheel zoom
   const onWheelHandler = logFn({
-    options: { name: "onWheel", log: true },
+    options: { name: "onWheel" },
     func: (e: React.WheelEvent<HTMLCanvasElement>) => {
       if (!canvasRef.current || !ctxRef.current) return;
       // if ctrl+wheel, else wheel
@@ -173,16 +205,25 @@ export const useCanvas = (onAction: {
     logFn({
       options: { name: "streamSelectActions", log: false, tag: "Helper" },
       func: () => {
+        if (!ctxRef.current) return;
         // draw selection box on selectElements
         // get the updated element from history
-        for (const elt of selectedElements) {
-          history.forEach((prevElts) =>
-            prevElts.forEach(
-              (prevElt) =>
-                prevElt.action !== "move" &&
-                prevElt.id === elt.id &&
-                drawSelection(ctxRef.current!, prevElt)
-            )
+        // we have to parse history to get the current position as selectedElements only saves onMouseup
+        if (selectedElements.length === 1) {
+          for (const elt of selectedElements) {
+            history.forEach((prevElts) =>
+              prevElts.forEach(
+                (prevElt) =>
+                  prevElt.action !== "move" &&
+                  prevElt.id === elt.id &&
+                  drawSelection(ctxRef.current!, prevElt) // prevElt is shallow
+              )
+            );
+          }
+        } else if (selectedElements.length > 1) {
+          drawMultiSelection(
+            ctxRef.current,
+            currentMultiSelectBoxRef.current!.update
           );
         }
       },
@@ -214,25 +255,25 @@ export const useCanvas = (onAction: {
               switch (action as Rough.ActionDraw) {
                 case "line":
                   return GEN.line(
-                    startPoint.x,
+                    startPoint.x, // startPoint
                     startPoint.y,
-                    currentDim.w + startPoint.x,
+                    currentDim.w + startPoint.x, // currentPoint
                     currentDim.h + startPoint.y,
                     options
                   );
                 case "rect":
                   return GEN.rectangle(
-                    startPoint.x,
+                    startPoint.x, // startPoint
                     startPoint.y,
-                    currentDim.w,
+                    currentDim.w, // width & height
                     currentDim.h,
                     options
                   );
                 case "ellipse":
                   return GEN.ellipse(
-                    startPoint.x,
+                    startPoint.x, // center
                     startPoint.y,
-                    currentDim.w,
+                    currentDim.w, // width & height
                     currentDim.h,
                     options
                   );
@@ -299,10 +340,10 @@ export const useCanvas = (onAction: {
   // reset select action on seletedElements update
   useEffect(() => {
     log({
-      vals: "reset selectActionRef",
+      vals: "reset moveActionRef",
       options: { log: false },
     });
-    currentSelectActionRef.current = {};
+    currentMoveActionRef.current = {};
   }, [selectedElements]);
 
   useEffect(() => {
@@ -342,7 +383,7 @@ export const useCanvas = (onAction: {
 
   const panning = useCallback(
     logFn({
-      options: { name: "panning", log: true, tag: "Helper" },
+      options: { name: "panning", tag: "Helper" },
       func: ({ startPoint, currentPoint }: Rough.Points) => {
         if (
           !currentPoint.x0 ||
@@ -372,11 +413,11 @@ export const useCanvas = (onAction: {
 
   const movingObj = useCallback(
     logFn({
-      options: { name: "movingObj", log: true, tag: "Helper" },
+      options: { name: "movingObj", tag: "Helper", log: true },
       func: ({ currentPoint }: Rough.Points) => {
+        if (!startingPointRef.current) return;
         let newHistory = [...history];
         for (const { id, startPoint } of selectedElements) {
-          if (!startingPointRef.current) return;
           const offset = {
             x: startingPointRef.current.x - startPoint.x,
             y: startingPointRef.current.y - startPoint.y,
@@ -387,10 +428,15 @@ export const useCanvas = (onAction: {
             y: currentPoint.y - offset.y,
           };
 
-          currentSelectActionRef.current[id] = newStartPoint;
+          currentMoveActionRef.current[id] = newStartPoint;
 
-          newHistory = newHistory.map((prevElts) =>
-            prevElts.map((prevElt) =>
+          log({
+            vals: [id, startPoint],
+            options: { tag: "adsfjjfkjdkf", log: true, spread: false },
+          });
+
+          newHistory = newHistory.map((prevHistory) =>
+            prevHistory.map((prevElt) =>
               // note that canvas elts and move actions have the same id to reference each other
               prevElt.action !== "move" && prevElt.id === id
                 ? {
@@ -401,11 +447,98 @@ export const useCanvas = (onAction: {
                 : prevElt
             )
           );
-          setHistory(newHistory);
+        }
+        setHistory(newHistory);
+        // update multiselect bounding box
+        if (currentMultiSelectBoxRef.current) {
+          const offsetX = startingPointRef.current.x - currentPoint.x;
+          const offsetY = startingPointRef.current.y - currentPoint.y;
+
+          currentMultiSelectBoxRef.current.update = {
+            startPoint: {
+              x:
+                currentMultiSelectBoxRef.current!.initial.startPoint.x -
+                offsetX,
+              y:
+                currentMultiSelectBoxRef.current!.initial.startPoint.y -
+                offsetY,
+            },
+            currentPoint: {
+              x:
+                currentMultiSelectBoxRef.current!.initial.currentPoint.x -
+                offsetX,
+              y:
+                currentMultiSelectBoxRef.current!.initial.currentPoint.y -
+                offsetY,
+            },
+          };
         }
       },
     }),
     [history, selectedElements]
+  );
+
+  const multiSelect = useCallback(
+    ({ startPoint, currentPoint }: Rough.Points) => {
+      let newSelectedElements: Rough.ActionHistory[] = [];
+      let newStartPoint: null | Point = null;
+      let newCurrentPoint: null | Point = null;
+      history.forEach((prevHistory) =>
+        prevHistory.forEach((prevElt) => {
+          if (prevElt.action !== "move") {
+            // warning!!! prevElt is shallow, make sure calcPoints sends back unreferenced values
+            const e = calcPoints(prevElt);
+            if (
+              startPoint.x <= e.startPoint.x &&
+              startPoint.y <= e.startPoint.y &&
+              currentPoint.x >= e.currentPoint.x &&
+              currentPoint.y >= e.currentPoint.y
+            ) {
+              // warning!!! prevElt is shallow, changing values in newSelectedElements will change history
+              newSelectedElements.push(prevElt);
+              if (!newStartPoint && !newCurrentPoint) {
+                newStartPoint = e.startPoint;
+                newCurrentPoint = e.currentPoint;
+              } else {
+                log({
+                  vals: [{ key: "test", val: newStartPoint }],
+                  options: { tag: "HELP", log: true },
+                });
+                if (newStartPoint && newStartPoint.x > e.startPoint.x) {
+                  newStartPoint.x = e.startPoint.x;
+                }
+                if (newStartPoint && newStartPoint.y > e.startPoint.y) {
+                  newStartPoint.y = e.startPoint.y;
+                }
+                if (newCurrentPoint && newCurrentPoint.x < e.currentPoint.x) {
+                  newCurrentPoint.x = e.currentPoint.x;
+                }
+                if (newCurrentPoint && newCurrentPoint.y < e.currentPoint.y) {
+                  newCurrentPoint.y = e.currentPoint.y;
+                }
+              }
+            }
+          }
+        })
+      );
+      // set elements in selection
+      if (newStartPoint && newCurrentPoint) {
+        setSelectedElements(newSelectedElements);
+        currentMultiSelectBoxRef.current!.initial = {
+          // startPoint: { x: (newStartPoint as Point).x - 20, y: (newStartPoint as Point).y - 20 },
+          // currentPoint: { x: (newCurrentPoint as Point).x + 20, y: (newCurrentPoint as Point).y + 20 }
+          startPoint: newStartPoint,
+          currentPoint: newCurrentPoint,
+        };
+        currentMultiSelectBoxRef.current!.update = {
+          // startPoint: { x: (newStartPoint as Point).x - 20, y: (newStartPoint as Point).y - 20 },
+          // currentPoint: { x: (newCurrentPoint as Point).x + 20, y: (newCurrentPoint as Point).y + 20 }
+          startPoint: newStartPoint,
+          currentPoint: newCurrentPoint,
+        };
+      }
+    },
+    [history]
   );
 
   const mouseMoveHandler = useCallback(
@@ -424,8 +557,10 @@ export const useCanvas = (onAction: {
           drawing({ startPoint, currentPoint });
         } else if (isPanning) {
           panning({ startPoint, currentPoint });
-        } else if (isMoving && startingPointRef.current) {
+        } else if (isMoving) {
           movingObj({ startPoint, currentPoint });
+        } else if (isMultiSelect) {
+          multiSelect({ startPoint, currentPoint });
         }
       },
     }),
@@ -435,16 +570,18 @@ export const useCanvas = (onAction: {
       isDrawing,
       isMoving,
       isPanning,
+      isMultiSelect,
       movingObj,
       onAction.func,
       panning,
       streamActions,
+      multiSelect,
     ]
   );
 
   const drawingSave = useCallback(
     logFn({
-      options: { name: "drawingSave", log: true, tag: "Helper" },
+      options: { name: "drawingSave", tag: "Helper" },
       func: () => {
         if (!currentDrawActionRef.current) return;
         setHistory((prevHistory) => {
@@ -461,14 +598,14 @@ export const useCanvas = (onAction: {
 
   const movingSave = useCallback(
     logFn({
-      options: { name: "onWheel", log: true, tag: "Helper" },
+      options: { name: "movingSave", tag: "Helper", log: true },
       func: () => {
         // move elements, go through all selectedElements, store necessary props in history
-        if (!currentSelectActionRef.current) return;
+        if (!currentMoveActionRef.current) return;
         const necessaryMoveProps = selectedElements
           .filter((prevProp) => {
             // only include elements that have been moved
-            const newStartPoint = currentSelectActionRef.current[prevProp.id];
+            const newStartPoint = currentMoveActionRef.current[prevProp.id];
             return (
               newStartPoint &&
               (newStartPoint.x !== prevProp.startPoint.x ||
@@ -482,7 +619,7 @@ export const useCanvas = (onAction: {
                 id: prevProp.id,
                 action: "move",
                 startPoint: prevProp.startPoint,
-                newStartPoint: currentSelectActionRef.current[prevProp.id],
+                newStartPoint: currentMoveActionRef.current[prevProp.id],
               }) as Rough.EditProps
           );
         // if necessaryMoveProps is empty then nothing has changed
@@ -491,19 +628,20 @@ export const useCanvas = (onAction: {
             return [...prevHistory.slice(0, index), necessaryMoveProps];
           });
 
-          // update selectedElement if currentSelectActionRef exists with the latest startPoint
-          setSelectedElements(
-            selectedElements.map(
+          // update selectedElement if currentMoveActionRef exists with the latest startPoint
+          setSelectedElements((prevSelected) =>
+            prevSelected.map(
               (prevElt) =>
                 ({
                   ...prevElt,
-                  ...(currentSelectActionRef.current[prevElt.id] && {
-                    startPoint: currentSelectActionRef.current[prevElt.id],
+                  ...(currentMoveActionRef.current[prevElt.id] && {
+                    startPoint: currentMoveActionRef.current[prevElt.id],
                   }),
                 }) as Rough.EditProps
             )
           );
           setIndex((i) => i + 1);
+          currentMoveActionRef.current = {};
         }
       },
     }),
@@ -518,11 +656,20 @@ export const useCanvas = (onAction: {
         setIsDrawing(false);
         setIsPanning(false);
         setIsMoving(false);
+        setIsMultiSelect(false);
+
+        // update so multiselect bounding box stays accurate
+        currentMultiSelectBoxRef.current.initial =
+          currentMultiSelectBoxRef.current.update;
 
         // add current action to history
         if (currentDrawActionRef.current) {
           drawingSave();
-        } else if (currentSelectActionRef.current && selectedElements.length) {
+        } else if (
+          Object.keys(currentMoveActionRef.current).length &&
+          selectedElements.length
+        ) {
+          // save move actions for undo/redo
           movingSave();
         }
       },
@@ -535,7 +682,7 @@ export const useCanvas = (onAction: {
     log({ vals: "mouseUp | mouseMove" });
     if (
       !(
-        (isDrawing || isPanning || isMoving) &&
+        (isDrawing || isPanning || isMoving || isMultiSelect) &&
         canvasRef.current &&
         ctxRef.current &&
         roughRef.current
@@ -554,7 +701,14 @@ export const useCanvas = (onAction: {
       canvas.removeEventListener("mousemove", mouseMoveHandler);
       window.removeEventListener("mouseup", mouseUpHandler);
     };
-  }, [isDrawing, isMoving, isPanning, mouseMoveHandler, mouseUpHandler]);
+  }, [
+    isDrawing,
+    isMoving,
+    isPanning,
+    isMultiSelect,
+    mouseMoveHandler,
+    mouseUpHandler,
+  ]);
 
   const mouseStyleHandler = useCallback(
     logFn({
@@ -692,8 +846,8 @@ export const useCanvas = (onAction: {
                 )
               );
             }
-            setHistory(newHistory);
           }
+          setHistory(newHistory);
           setIndex(newIndex);
         }
       },
