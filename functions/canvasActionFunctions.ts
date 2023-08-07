@@ -33,13 +33,15 @@ export function draw({ history, action, rc, gen, startPoint, currentPoint, optio
 	})();
 
 	rc.draw(drawable);
-	return {
-		id: history.reduce((currentCount, row) => currentCount + row.length, 0),
-		action,
-		startPoint,
-		currentDim,
-		options
-	};
+	return [
+		{
+			id: history.reduce((currentCount, row) => currentCount + row.length, 0),
+			action,
+			startPoint,
+			currentDim,
+			options
+		}
+	];
 }
 
 export const detectBoundary = ({ history, index, mousePoint }: Rough.Select) => {
