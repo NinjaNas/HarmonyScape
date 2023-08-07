@@ -345,22 +345,20 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			options: { name: "drawing", log: false, tag: "Helper" },
 			func: ({ startPoint, currentPoint }: Rough.Points) => {
 				currentDrawActionRef.current = [
-					{
-						...(onAction.func as Rough.DrawFunc)({
-							history,
-							action: onAction.type as Rough.ActionDraw,
-							rc: roughRef.current!,
-							ctx: ctxRef.current!,
-							startPoint: { x: startPoint.x, y: startPoint.y },
-							currentPoint: { x: currentPoint.x, y: currentPoint.y },
-							gen: GEN,
-							options: {
-								seed: getRandomInt(1, 2 ** 31),
-								preserveVertices: false, // randomize end points of lines, default: false
-								curveFitting: 0.99 // error margin for curve, 1 is a perfect curve, default: .95
-							}
-						})
-					}
+					...(onAction.func as Rough.DrawFunc)({
+						history,
+						action: onAction.type as Rough.ActionDraw,
+						rc: roughRef.current!,
+						ctx: ctxRef.current!,
+						startPoint: { x: startPoint.x, y: startPoint.y },
+						currentPoint: { x: currentPoint.x, y: currentPoint.y },
+						gen: GEN,
+						options: {
+							seed: getRandomInt(1, 2 ** 31),
+							preserveVertices: false, // randomize end points of lines, default: false
+							curveFitting: 0.99 // error margin for curve, 1 is a perfect curve, default: .95
+						}
+					})
 				];
 			}
 		}),
@@ -452,6 +450,11 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 
 	const multiSelect = useCallback(
 		({ startPoint, currentPoint }: Rough.Points) => {
+			// calculate the minimum and maximum x and y values
+			const minX = Math.min(startPoint.x, currentPoint.x);
+			const maxX = Math.max(startPoint.x, currentPoint.x);
+			const minY = Math.min(startPoint.y, currentPoint.y);
+			const maxY = Math.max(startPoint.y, currentPoint.y);
 			let newSelectedElements: Rough.ActionHistory[] = [];
 			let newStartPoint: null | Point = null;
 			let newCurrentPoint: null | Point = null;
@@ -461,10 +464,10 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 						// warning!!! prevElt is shallow, make sure calcPoints sends back unreferenced values
 						const e = calcPoints(prevElt);
 						if (
-							startPoint.x <= e.startPoint.x &&
-							startPoint.y <= e.startPoint.y &&
-							currentPoint.x >= e.currentPoint.x &&
-							currentPoint.y >= e.currentPoint.y
+							minX <= e.startPoint.x &&
+							minY <= e.startPoint.y &&
+							maxX >= e.currentPoint.x &&
+							maxY >= e.currentPoint.y
 						) {
 							// warning!!! prevElt is shallow, changing values in newSelectedElements will change history
 							newSelectedElements.push(prevElt);
@@ -472,10 +475,6 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 								newStartPoint = e.startPoint;
 								newCurrentPoint = e.currentPoint;
 							} else {
-								log({
-									vals: [{ key: "test", val: newStartPoint }],
-									options: { tag: "HELP", log: true }
-								});
 								if (newStartPoint && newStartPoint.x > e.startPoint.x) {
 									newStartPoint.x = e.startPoint.x;
 								}
@@ -551,13 +550,56 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 		]
 	);
 
+	// adjust coordinates so default startPoint is bottom left
+	const adjustCoords = useCallback(
+		logFn({
+			options: { name: "adjustCoords", tag: "Helper" },
+			func: (elts: Rough.ActionHistory[]) => {
+				for (const elt of elts) {
+					// force default startPoint to bottom left respectively
+					switch (elt.action as Rough.ActionDraw) {
+						case "line":
+							// need to allow y to be negative or positive
+							if (elt.currentDim.w < 0 || (elt.currentDim.w === 0 && elt.currentDim.h < 0)) {
+								elt.startPoint.x += elt.currentDim.w;
+								elt.startPoint.y += elt.currentDim.h;
+								elt.currentDim.w = -elt.currentDim.w;
+								elt.currentDim.h = -elt.currentDim.h;
+							}
+							break;
+						case "rect":
+							if (elt.currentDim.w < 0) {
+								elt.startPoint.x += elt.currentDim.w;
+								elt.currentDim.w = -elt.currentDim.w;
+							}
+							if (elt.currentDim.h < 0) {
+								elt.startPoint.y += elt.currentDim.h;
+								elt.currentDim.h = -elt.currentDim.h;
+							}
+							break;
+						case "ellipse":
+							if (elt.currentDim.w < 0) {
+								elt.currentDim.w = Math.abs(elt.currentDim.w);
+							}
+							if (elt.currentDim.h < 0) {
+								elt.currentDim.h = Math.abs(elt.currentDim.h);
+							}
+							break;
+					}
+				}
+				return elts;
+			}
+		}),
+		[]
+	);
+
 	const drawingSave = useCallback(
 		logFn({
 			options: { name: "drawingSave", tag: "Helper" },
 			func: () => {
 				if (!currentDrawActionRef.current) return;
 				setHistory(prevHistory => {
-					return [...prevHistory.slice(0, index), currentDrawActionRef.current!];
+					return [...prevHistory.slice(0, index), adjustCoords(currentDrawActionRef.current!)];
 				});
 				setIndex(i => i + 1);
 			}
