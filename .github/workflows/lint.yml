@@ -29,8 +29,8 @@ jobs:
         env:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_SQL: true
-          # VALIDATE_TYPESCRIPT_ES: true
-          # VALIDATE_TSX: true
+          VALIDATE_TYPESCRIPT_ES: true
+          VALIDATE_TSX: true
           VALIDATE_YAML: true
           VALIDATE_JSON: true
           VALIDATE_HTML: true
@@ -38,5 +38,5 @@ jobs:
           DEFAULT_BRANCH: "main"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # config file at root
-          LINTER_RULES_PATH: /
+          # LINTER_RULES_PATH: /
           # TYPESCRIPT_ES_CONFIG_FILE: .eslintrc.json
