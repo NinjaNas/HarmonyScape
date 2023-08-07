@@ -27,7 +27,7 @@ export default function Canvas(): React.ReactNode {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const actionHandler = useCallback(
     logFn({
-      options: { name: "action", log: true },
+      options: { name: "action" },
       func: (e: React.ChangeEvent<HTMLInputElement>) => {
         switch (e.target.value as Rough.CanvasActions) {
           case "select":
