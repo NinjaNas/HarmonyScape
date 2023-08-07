@@ -37,4 +37,6 @@ jobs:
           VALIDATE_DOCKERFILE_HADOLINT: true
           DEFAULT_BRANCH: "main"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          YAML_CONFIG_FILE: .yamllint
+          # config file at root
+          LINTER_RULES_PATH: /
+          ESLINT_CONFIG_FILE: .eslintrc.json
