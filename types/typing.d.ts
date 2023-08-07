@@ -97,7 +97,7 @@ declare namespace Rough {
     mousePoint: Point;
   };
 
-  type SelectProps = { elts: null | Rough.DrawProps[]; action: type };
+  type SelectProps = { elts: null | Rough.DrawProps; action: type };
 
   type EditProps = {
     id: number;

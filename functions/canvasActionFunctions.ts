@@ -139,7 +139,7 @@ export const detectBoundary = ({
     }
   }
   // only return one element
-  return { elts: eltArr.length ? [eltArr[0]] : null, action: "move" };
+  return { elts: eltArr.length ? eltArr[0] : null, action: "move" };
 };
 
 const detectLine = ({ lines, mousePoint }: DetectLine) => {
@@ -159,25 +159,62 @@ const detectLine = ({ lines, mousePoint }: DetectLine) => {
 const distance = ({ a, b }: Distance) =>
   Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
 
+// calculate consistent start and currentPoints for shapes
+export const calcPoints = ({
+  action,
+  startPoint,
+  currentDim,
+}: Rough.ActionHistory) => {
+  return (() => {
+    switch (action as Rough.ActionDraw) {
+      case "line": {
+        const currentPoint: Point = {
+          x: currentDim.w + startPoint.x,
+          y: currentDim.h + startPoint.y,
+        };
+
+        // deep copy
+        const start: Point = { x: startPoint.x, y: startPoint.y };
+
+        return { startPoint: start, currentPoint };
+      }
+      case "rect": {
+        const currentPoint: Point = {
+          x: currentDim.w + startPoint.x,
+          y: currentDim.h + startPoint.y,
+        };
+
+        // deep copy
+        const start: Point = { x: startPoint.x, y: startPoint.y };
+
+        return { startPoint: start, currentPoint };
+      }
+      case "ellipse": {
+        const start: Point = {
+          x: startPoint.x - currentDim.w / 2,
+          y: startPoint.y - currentDim.h / 2,
+        };
+        const currentPoint: Point = {
+          x: startPoint.x + currentDim.w / 2,
+          y: startPoint.y + currentDim.h / 2,
+        };
+        return { startPoint: start, currentPoint };
+      }
+    }
+  })();
+};
+
 export const drawSelection = (
   ctx: CanvasRenderingContext2D,
-  { action, startPoint, currentDim }: Rough.ActionHistory
+  elt: Rough.ActionHistory
 ) => {
-  switch (action) {
+  const { startPoint, currentPoint }: Rough.Points = calcPoints(elt);
+  switch (elt.action) {
     case "line": {
-      const currentPoint: Point = {
-        x: currentDim.w + startPoint.x,
-        y: currentDim.h + startPoint.y,
-      };
       drawSelectionHelper(ctx, [startPoint, currentPoint]);
       break;
     }
     case "rect": {
-      const currentPoint: Point = {
-        x: currentDim.w + startPoint.x,
-        y: currentDim.h + startPoint.y,
-      };
-
       drawSelectionHelper(ctx, [
         startPoint,
         currentPoint,
@@ -187,24 +224,27 @@ export const drawSelection = (
       break;
     }
     case "ellipse": {
-      const start: Point = {
-        x: startPoint.x - currentDim.w / 2,
-        y: startPoint.y - currentDim.h / 2,
-      };
-      const currentPoint: Point = {
-        x: startPoint.x + currentDim.w / 2,
-        y: startPoint.y + currentDim.h / 2,
-      };
-
       drawSelectionHelper(ctx, [
-        start,
+        startPoint,
         currentPoint,
-        { x: start.x, y: currentPoint.y },
-        { x: currentPoint.x, y: start.y },
+        { x: startPoint.x, y: currentPoint.y },
+        { x: currentPoint.x, y: startPoint.y },
       ]);
       break;
     }
   }
+};
+
+export const drawMultiSelection = (
+  ctx: CanvasRenderingContext2D,
+  { startPoint, currentPoint }: Rough.Points
+) => {
+  drawSelectionHelper(ctx, [
+    startPoint,
+    currentPoint,
+    { x: startPoint.x, y: currentPoint.y },
+    { x: currentPoint.x, y: startPoint.y },
+  ]);
 };
 
 const drawSelectionHelper = (
