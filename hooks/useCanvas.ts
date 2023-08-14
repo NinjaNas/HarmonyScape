@@ -22,7 +22,7 @@ import {
 } from "@constants/canvasConstants";
 
 export const useCanvas = (onAction: { func: null | Rough.Action; type: string }) => {
-	const { isUndo, isUndoMac, isRedo, isRedoMac } = useShortcuts();
+	const { isUndo, isUndoMac, isRedo, isRedoMac, isShift } = useShortcuts();
 	const [history, setHistory] = useState<Rough.ActionHistory[][]>([]);
 	const [index, setIndex] = useState<number>(0); // index is the length of states in history
 	const [origin, setOrigin] = useState<Point>({ x: 0, y: 0 });
@@ -32,17 +32,18 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 	const [isMoving, setIsMoving] = useState<boolean>(false);
 	const [isMultiSelect, setIsMultiSelect] = useState<boolean>(false);
 	const [selectedElements, setSelectedElements] = useState<Rough.ActionHistory[]>([]);
+	const [multiSelectBox, setMultiSelectBox] = useState<Rough.Points>({
+		startPoint: { x: 0, y: 0 },
+		currentPoint: { x: 0, y: 0 }
+	});
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const ctxRef = useRef<null | CanvasRenderingContext2D>(null);
 	const roughRef = useRef<null | RoughCanvas>(null);
 	const currentDrawActionRef = useRef<null | Rough.ActionHistory[]>(null);
-	const currentMultiSelectBoxRef = useRef<{
-		initial: Rough.Points;
-		update: Rough.Points;
-	}>({
-		initial: { startPoint: { x: 0, y: 0 }, currentPoint: { x: 0, y: 0 } },
-		update: { startPoint: { x: 0, y: 0 }, currentPoint: { x: 0, y: 0 } }
+	const currentMultiSelectBoxRef = useRef<Rough.Points>({
+		startPoint: { x: 0, y: 0 },
+		currentPoint: { x: 0, y: 0 }
 	});
 	const currentMoveActionRef = useRef<{ [id: string]: Point }>({});
 	const startingPointRef = useRef<null | Point>(null);
@@ -63,15 +64,59 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			{ key: "moveRef", val: currentMoveActionRef.current },
 			{
 				key: "multiStart",
-				val: currentMultiSelectBoxRef.current?.update.startPoint
+				val: multiSelectBox.startPoint
 			},
 			{
 				key: "multiCurrent",
-				val: currentMultiSelectBoxRef.current?.update.currentPoint
+				val: multiSelectBox.currentPoint
 			}
 		],
 		options: { tag: "Selected", spread: false, log: true }
 	});
+
+	const calcBoundingBox = useCallback(
+		logFn({
+			options: { name: "calcBoundingBox", tag: "Helper" },
+			func: () => {
+				if (!selectedElements.length) return;
+				const minX = Math.min(...selectedElements.map(prevElt => prevElt.startPoint.x));
+				const minY = Math.min(...selectedElements.map(prevElt => prevElt.startPoint.y));
+				const maxX = Math.max(
+					...selectedElements.map(prevElt => {
+						const e = calcPoints(prevElt);
+						return e.currentPoint.x;
+					})
+				);
+				const maxY = Math.max(
+					...selectedElements.map(prevElt => {
+						const e = calcPoints(prevElt);
+						return e.currentPoint.y;
+					})
+				);
+				setMultiSelectBox({
+					startPoint: {
+						x: minX,
+						y: minY
+					},
+					currentPoint: {
+						x: maxX,
+						y: maxY
+					}
+				});
+				currentMultiSelectBoxRef.current = {
+					startPoint: {
+						x: minX,
+						y: minY
+					},
+					currentPoint: {
+						x: maxX,
+						y: maxY
+					}
+				};
+			}
+		}),
+		[selectedElements]
+	);
 
 	const selectHelper = logFn({
 		options: { name: "selectHelper", tag: "Helper" },
@@ -82,30 +127,26 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				mousePoint: point,
 				index
 			});
-			if (!elts && !e.shiftKey) {
-				setSelectedElements([]);
-				// currentMultiSelectBoxRef.current = null;
-				setIsMultiSelect(true);
-			} else if (!elts && (e.shiftKey || selectedElements.length > 1)) {
-				return;
-			} else {
+			if (elts) {
 				switch (action as Rough.SelectActions) {
 					case "move":
 						setIsMultiSelect(false);
-						// currentMultiSelectBoxRef.current = calcPoints(elts as Rough.DrawProps);
+						// if shiftKey unique selectElements are added, else add one elt
+						if (isShift) {
+							setSelectedElements(prevElts => {
+								const ids = new Set(prevElts.map(i => i.id));
+								return [...prevElts, ...[elts!].filter(i => !ids.has(i.id))];
+							});
+						} else if (elts && selectedElements.length > 1) {
+						} else {
+							setSelectedElements([elts!]);
+						}
 						setIsMoving(true);
 						break;
 				}
-				// if shiftKey unique selectElements are added, else add one elt
-				if (e.shiftKey) {
-					setSelectedElements(prevElts => {
-						const ids = new Set(prevElts.map(i => i.id));
-						return [...prevElts, ...[elts!].filter(i => !ids.has(i.id))];
-					});
-				} else if (elts && selectedElements.length > 1) {
-				} else {
-					setSelectedElements([elts!]);
-				}
+			} else if (!elts && !isShift) {
+				setSelectedElements([]);
+				setIsMultiSelect(true);
 			}
 		}
 	});
@@ -210,11 +251,11 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 						);
 					}
 				} else if (selectedElements.length > 1) {
-					drawMultiSelection(ctxRef.current, currentMultiSelectBoxRef.current!.update);
+					drawMultiSelection(ctxRef.current, multiSelectBox);
 				}
 			}
 		}),
-		[history, selectedElements]
+		[history, selectedElements, multiSelectBox.currentPoint, multiSelectBox.startPoint]
 	);
 
 	// render all previous actions (origin/scale/history/index)
@@ -395,6 +436,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			func: ({ currentPoint }: Rough.Points) => {
 				if (!startingPointRef.current) return;
 				let newHistory = [...history];
+
 				for (const { id, startPoint } of selectedElements) {
 					const offset = {
 						x: startingPointRef.current.x - startPoint.x,
@@ -432,16 +474,16 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 					const offsetX = startingPointRef.current.x - currentPoint.x;
 					const offsetY = startingPointRef.current.y - currentPoint.y;
 
-					currentMultiSelectBoxRef.current.update = {
+					setMultiSelectBox({
 						startPoint: {
-							x: currentMultiSelectBoxRef.current!.initial.startPoint.x - offsetX,
-							y: currentMultiSelectBoxRef.current!.initial.startPoint.y - offsetY
+							x: currentMultiSelectBoxRef.current.startPoint.x - offsetX,
+							y: currentMultiSelectBoxRef.current.startPoint.y - offsetY
 						},
 						currentPoint: {
-							x: currentMultiSelectBoxRef.current!.initial.currentPoint.x - offsetX,
-							y: currentMultiSelectBoxRef.current!.initial.currentPoint.y - offsetY
+							x: currentMultiSelectBoxRef.current.currentPoint.x - offsetX,
+							y: currentMultiSelectBoxRef.current.currentPoint.y - offsetY
 						}
-					};
+					});
 				}
 			}
 		}),
@@ -456,8 +498,6 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			const minY = Math.min(startPoint.y, currentPoint.y);
 			const maxY = Math.max(startPoint.y, currentPoint.y);
 			let newSelectedElements: Rough.ActionHistory[] = [];
-			let newStartPoint: null | Point = null;
-			let newCurrentPoint: null | Point = null;
 			history.forEach(prevHistory =>
 				prevHistory.forEach(prevElt => {
 					if (prevElt.action !== "move") {
@@ -471,43 +511,13 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 						) {
 							// warning!!! prevElt is shallow, changing values in newSelectedElements will change history
 							newSelectedElements.push(prevElt);
-							if (!newStartPoint && !newCurrentPoint) {
-								newStartPoint = e.startPoint;
-								newCurrentPoint = e.currentPoint;
-							} else {
-								if (newStartPoint && newStartPoint.x > e.startPoint.x) {
-									newStartPoint.x = e.startPoint.x;
-								}
-								if (newStartPoint && newStartPoint.y > e.startPoint.y) {
-									newStartPoint.y = e.startPoint.y;
-								}
-								if (newCurrentPoint && newCurrentPoint.x < e.currentPoint.x) {
-									newCurrentPoint.x = e.currentPoint.x;
-								}
-								if (newCurrentPoint && newCurrentPoint.y < e.currentPoint.y) {
-									newCurrentPoint.y = e.currentPoint.y;
-								}
-							}
 						}
 					}
 				})
 			);
 			// set elements in selection
-			if (newStartPoint && newCurrentPoint) {
-				setSelectedElements(newSelectedElements);
-				currentMultiSelectBoxRef.current!.initial = {
-					// startPoint: { x: (newStartPoint as Point).x - 20, y: (newStartPoint as Point).y - 20 },
-					// currentPoint: { x: (newCurrentPoint as Point).x + 20, y: (newCurrentPoint as Point).y + 20 }
-					startPoint: newStartPoint,
-					currentPoint: newCurrentPoint
-				};
-				currentMultiSelectBoxRef.current!.update = {
-					// startPoint: { x: (newStartPoint as Point).x - 20, y: (newStartPoint as Point).y - 20 },
-					// currentPoint: { x: (newCurrentPoint as Point).x + 20, y: (newCurrentPoint as Point).y + 20 }
-					startPoint: newStartPoint,
-					currentPoint: newCurrentPoint
-				};
-			}
+
+			setSelectedElements(newSelectedElements);
 		},
 		[history]
 	);
@@ -652,7 +662,6 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 						)
 					);
 					setIndex(i => i + 1);
-					currentMoveActionRef.current = {};
 				}
 			}
 		}),
@@ -670,7 +679,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				setIsMultiSelect(false);
 
 				// update so multiselect bounding box stays accurate
-				currentMultiSelectBoxRef.current.initial = currentMultiSelectBoxRef.current.update;
+				currentMultiSelectBoxRef.current = multiSelectBox;
 
 				// add current action to history
 				if (currentDrawActionRef.current) {
@@ -681,7 +690,13 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				}
 			}
 		}),
-		[drawingSave, movingSave, selectedElements.length]
+		[
+			drawingSave,
+			movingSave,
+			selectedElements.length,
+			multiSelectBox.currentPoint,
+			multiSelectBox.startPoint
+		]
 	);
 
 	// drawEffect for mouseDown/mouseMove/mouseUp
@@ -775,6 +790,11 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 		log({ vals: "streamActions" });
 		streamActions();
 	}, [streamActions]);
+
+	useEffect(() => {
+		calcBoundingBox();
+		currentMoveActionRef.current = {};
+	}, [calcBoundingBox]);
 
 	useEffect(() => {
 		log({ vals: "history/index latest ref" });
