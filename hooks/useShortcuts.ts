@@ -7,6 +7,7 @@ export const useShortcuts = () => {
 	const isUndoMac = useKeyCombo("meta + z");
 	const isRedo = useKeyCombo("control + y");
 	const isRedoMac = useKeyCombo("meta + shift + z");
+	const isShift = useKeyCombo("shift");
 
-	return { isUndo, isUndoMac, isRedo, isRedoMac };
+	return { isUndo, isUndoMac, isRedo, isRedoMac, isShift };
 };
