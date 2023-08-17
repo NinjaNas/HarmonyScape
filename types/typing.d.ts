@@ -130,4 +130,11 @@ declare namespace Rough {
 		newIndex: number;
 		actionIndex: number;
 	};
+
+	type BoundingPoints = {
+		bl?: Point;
+		tr?: Point;
+		br: Point;
+		tl: Point;
+	};
 }

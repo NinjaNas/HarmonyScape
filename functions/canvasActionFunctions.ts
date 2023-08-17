@@ -4,7 +4,11 @@ import {
 	CIRCLE_TOLERANCE,
 	IS_LOG,
 	LOG_TAG,
-	FN_TAG
+	FN_TAG,
+	RESIZE_RADIUS,
+	RESIZE_COLOR,
+	RESIZE_FILL_COLOR,
+	BOUNDING_OFFSET
 } from "@constants/canvasConstants";
 
 export function draw({ history, action, rc, gen, startPoint, currentPoint, options }: Rough.Draw) {
@@ -184,25 +188,33 @@ export const drawSelection = (ctx: CanvasRenderingContext2D, elt: Rough.ActionHi
 	const { startPoint, currentPoint }: Rough.Points = calcPoints(elt);
 	switch (elt.action) {
 		case "line": {
-			drawSelectionHelper(ctx, [startPoint, currentPoint]);
+			drawSelectionHelper(ctx, { tl: startPoint, br: currentPoint }, false);
 			break;
 		}
 		case "rect": {
-			drawSelectionHelper(ctx, [
-				startPoint,
-				currentPoint,
-				{ x: startPoint.x, y: currentPoint.y },
-				{ x: currentPoint.x, y: startPoint.y }
-			]);
+			drawBoxHelper(ctx, startPoint, {
+				w: currentPoint.x - startPoint.x,
+				h: currentPoint.y - startPoint.y
+			});
+			drawSelectionHelper(ctx, {
+				tl: startPoint,
+				br: currentPoint,
+				bl: { x: startPoint.x, y: currentPoint.y },
+				tr: { x: currentPoint.x, y: startPoint.y }
+			});
 			break;
 		}
 		case "ellipse": {
-			drawSelectionHelper(ctx, [
-				startPoint,
-				currentPoint,
-				{ x: startPoint.x, y: currentPoint.y },
-				{ x: currentPoint.x, y: startPoint.y }
-			]);
+			drawBoxHelper(ctx, startPoint, {
+				w: currentPoint.x - startPoint.x,
+				h: currentPoint.y - startPoint.y
+			});
+			drawSelectionHelper(ctx, {
+				tl: startPoint,
+				br: currentPoint,
+				bl: { x: startPoint.x, y: currentPoint.y },
+				tr: { x: currentPoint.x, y: startPoint.y }
+			});
 			break;
 		}
 	}
@@ -212,20 +224,57 @@ export const drawMultiSelection = (
 	ctx: CanvasRenderingContext2D,
 	{ startPoint, currentPoint }: Rough.Points
 ) => {
-	drawSelectionHelper(ctx, [
-		startPoint,
-		currentPoint,
-		{ x: startPoint.x, y: currentPoint.y },
-		{ x: currentPoint.x, y: startPoint.y }
-	]);
+	drawBoxHelper(ctx, startPoint, {
+		w: currentPoint.x - startPoint.x,
+		h: currentPoint.y - startPoint.y
+	});
+	drawSelectionHelper(ctx, {
+		tl: startPoint,
+		br: currentPoint,
+		bl: { x: startPoint.x, y: currentPoint.y },
+		tr: { x: currentPoint.x, y: startPoint.y }
+	});
 };
 
-const drawSelectionHelper = (ctx: CanvasRenderingContext2D, points: Point[]) => {
-	for (const p of points) {
-		ctx.beginPath();
-		ctx.arc(p.x, p.y, 40, 0, 2 * Math.PI);
-		ctx.stroke();
+const drawSelectionHelper = (
+	ctx: CanvasRenderingContext2D,
+	{ bl, tr, br, tl }: Rough.BoundingPoints,
+	offsetBool = true
+) => {
+	const offset = offsetBool ? BOUNDING_OFFSET : 0;
+	ctx.lineWidth = 3;
+	ctx.fillStyle = RESIZE_FILL_COLOR;
+	ctx.strokeStyle = RESIZE_COLOR;
+
+	drawCircleHelper(ctx, { x: tl.x - offset, y: tl.y - offset });
+
+	drawCircleHelper(ctx, { x: br.x + offset, y: br.y + offset });
+
+	if (tr) {
+		drawCircleHelper(ctx, { x: tr.x + offset, y: tr.y - offset });
 	}
+
+	if (bl) {
+		drawCircleHelper(ctx, { x: bl.x - offset, y: bl.y + offset });
+	}
+};
+
+const drawCircleHelper = (ctx: CanvasRenderingContext2D, startPoint: Point) => {
+	ctx.beginPath();
+	ctx.arc(startPoint.x, startPoint.y, RESIZE_RADIUS, 0, 2 * Math.PI);
+	ctx.closePath();
+	ctx.stroke();
+	ctx.fill();
+};
+
+const drawBoxHelper = (ctx: CanvasRenderingContext2D, startPoint: Point, currentDim: Dim) => {
+	ctx.lineWidth = 0.7;
+	ctx.strokeRect(
+		startPoint.x - BOUNDING_OFFSET,
+		startPoint.y - BOUNDING_OFFSET,
+		currentDim.w + BOUNDING_OFFSET * 2,
+		currentDim.h + BOUNDING_OFFSET * 2
+	);
 };
 
 export const getRandomInt = (min: number, max: number) => {
