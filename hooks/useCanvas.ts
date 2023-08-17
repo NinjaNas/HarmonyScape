@@ -18,7 +18,8 @@ import {
 	ZOOM_IN_FACTOR,
 	ZOOM_OUT_FACTOR,
 	DELAY,
-	GEN
+	GEN,
+	GLOBAL_ZOOM
 } from "@constants/canvasConstants";
 
 export const useCanvas = (onAction: { func: null | Rough.Action; type: string }) => {
@@ -79,20 +80,29 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			options: { name: "calcBoundingBox", tag: "Helper" },
 			func: () => {
 				if (!selectedElements.length) return;
-				const minX = Math.min(...selectedElements.map(prevElt => prevElt.startPoint.x));
-				const minY = Math.min(...selectedElements.map(prevElt => prevElt.startPoint.y));
-				const maxX = Math.max(
-					...selectedElements.map(prevElt => {
-						const e = calcPoints(prevElt);
-						return e.currentPoint.x;
-					})
-				);
-				const maxY = Math.max(
-					...selectedElements.map(prevElt => {
-						const e = calcPoints(prevElt);
-						return e.currentPoint.y;
-					})
-				);
+
+				let minX;
+				let minY;
+				let maxX;
+				let maxY;
+
+				for (const prevElt of selectedElements) {
+					const e = calcPoints(prevElt);
+					if (!minX || !minY || !maxX || !maxY) {
+						minX = e.startPoint.x;
+						minY = e.startPoint.y;
+						maxX = e.currentPoint.x;
+						maxY = e.currentPoint.y;
+					} else {
+						minX = Math.min(minX, e.startPoint.x);
+						minY = Math.min(minY, e.startPoint.y);
+						maxX = Math.max(maxX, e.currentPoint.x);
+						maxY = Math.max(maxY, e.currentPoint.y);
+					}
+				}
+
+				if (!minX || !minY || !maxX || !maxY) return;
+
 				setMultiSelectBox({
 					startPoint: {
 						x: minX,
@@ -269,8 +279,8 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				ctxRef.current.clearRect(
 					origin.x,
 					origin.y,
-					window.innerWidth / scale,
-					window.innerHeight / scale
+					(window.innerWidth * GLOBAL_ZOOM) / scale,
+					(window.innerHeight * GLOBAL_ZOOM) / scale
 				);
 
 				// for each element up to current index redraw that action
@@ -449,11 +459,6 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 					};
 
 					currentMoveActionRef.current[id] = newStartPoint;
-
-					log({
-						vals: [id, startPoint],
-						options: { tag: "adsfjjfkjdkf", log: true, spread: false }
-					});
 
 					newHistory = newHistory.map(prevHistory =>
 						prevHistory.map(prevElt =>
