@@ -3,6 +3,7 @@ import { useCanvas } from "@hooks/useCanvas";
 import { useWindowResize } from "@hooks/useWindowResize";
 import { draw, detectBoundary, log, logFn } from "@functions/canvasActionFunctions";
 import { useRemoveCtrlZoom } from "@hooks/useRemoveCtrlZoom";
+import { GLOBAL_ZOOM } from "@/constants/canvasConstants";
 
 export default function Canvas(): React.ReactNode {
 	log({ vals: "Canvas.tsx", options: { tag: "Render" } });

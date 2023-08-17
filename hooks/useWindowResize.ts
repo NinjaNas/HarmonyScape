@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+import { GLOBAL_ZOOM } from "@constants/canvasConstants";
 import { log, logFn } from "@functions/canvasActionFunctions";
 import { useLayoutEffect, useState } from "react";
 
@@ -16,8 +17,8 @@ export const useWindowResize = () => {
 			func: () => {
 				const handlerResize = () => {
 					setWindowSize({
-						innerWidth: window.innerWidth,
-						innerHeight: window.innerHeight
+						innerWidth: window.innerWidth * GLOBAL_ZOOM,
+						innerHeight: window.innerHeight * GLOBAL_ZOOM
 					});
 				};
 				// init windowSize
