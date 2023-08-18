@@ -130,10 +130,12 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 
 	const selectHelper = logFn({
 		options: { name: "selectHelper", tag: "Helper" },
-		func: ({ e, point }: { e: React.MouseEvent<HTMLCanvasElement, MouseEvent>; point: Point }) => {
+		func: ({ point }: { point: Point }) => {
 			// null or multiple element array
 			const { elts, action } = (onAction.func as Rough.SelectFunc)({
 				history,
+				selectedElements,
+				multiSelectBox,
 				mousePoint: point,
 				index
 			});
@@ -741,6 +743,8 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 					if (!currentPoint) return;
 					(e.target as HTMLElement).style.cursor = (onAction.func as Rough.SelectFunc)({
 						history,
+						selectedElements,
+						multiSelectBox,
 						mousePoint: currentPoint,
 						index
 					}).elts
@@ -751,7 +755,15 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				}
 			}
 		}),
-		[computePointInCanvas, history, index, onAction.func, onAction.type]
+		[
+			computePointInCanvas,
+			history,
+			index,
+			onAction.func,
+			onAction.type,
+			selectedElements,
+			multiSelectBox
+		]
 	);
 
 	// update mouse cursor on canvas mouseMove while mouse is not down
