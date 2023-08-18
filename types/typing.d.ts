@@ -37,11 +37,17 @@ type WindowSize = { innerWidth: number; innerHeight: number };
 
 type TestLines = {
 	startPoint: Point;
-	endPoint: Point;
+	currentPoint: Point;
 };
 
 type DetectLine = {
 	lines: TestLines[];
+	mousePoint: Point;
+};
+
+type DetectInsideBox = {
+	tl: Point;
+	br: Point;
 	mousePoint: Point;
 };
 
@@ -93,11 +99,31 @@ declare namespace Rough {
 
 	type Select = {
 		history: Rough.ActionHistory[][];
+		selectedElements: Rough.ActionHistory[];
+		multiSelectBox: Rough.Points;
 		index: number;
 		mousePoint: Point;
 	};
 
 	type SelectProps = { elts: null | Rough.DrawProps; action: type };
+
+	type DetectBoundaryTransparentNoSelectedElements = {
+		elt: Rough.DrawProps;
+		mousePoint: Point;
+	};
+
+	type DetectBoundarySingleSelectedElement = {
+		history: Rough.ActionHistory[][];
+		selectedElements: Rough.ActionHistory[];
+		index: number;
+		mousePoint: Point;
+	};
+
+	type DetectBoundaryMultiSelectedElements = {
+		selectedElements: Rough.ActionHistory[];
+		multiSelectBox: Rough.Points;
+		mousePoint: Point;
+	};
 
 	type EditProps = {
 		id: number;
