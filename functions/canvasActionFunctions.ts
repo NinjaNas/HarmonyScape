@@ -48,93 +48,170 @@ export function draw({ history, action, rc, gen, startPoint, currentPoint, optio
 	];
 }
 
-export const detectBoundary = ({ history, index, mousePoint }: Rough.Select) => {
-	let eltArr: Rough.ActionHistory[] = [];
+export const detectBoundary = ({
+	history,
+	selectedElements,
+	multiSelectBox,
+	index,
+	mousePoint
+}: Rough.Select) => {
+	if (selectedElements.length <= 1) {
+		return detectBoundarySingleSelectedElement({
+			history,
+			index,
+			mousePoint,
+			selectedElements
+		});
+	} else {
+		return detectBoundaryMultiSelectedElements({
+			multiSelectBox,
+			mousePoint,
+			selectedElements
+		});
+	}
+};
 
+const detectBoundaryTransparentNoSelectedElements = ({
+	elt,
+	mousePoint
+}: Rough.DetectBoundaryTransparentNoSelectedElements) => {
+	let eltArr: Rough.ActionHistory[] = [];
+	// center is used for calculating the ellipse
+	const { action, startPoint: center, currentDim } = elt;
+	const { startPoint, currentPoint } = calcPoints(elt);
+
+	const flag = (() => {
+		switch (action as Rough.ActionDraw) {
+			case "line": {
+				return detectLine({
+					lines: [{ startPoint, currentPoint }],
+					mousePoint
+				});
+			}
+			case "rect": {
+				const tr: Point = { x: currentPoint.x, y: startPoint.y };
+				const bl: Point = { x: startPoint.x, y: currentPoint.y };
+
+				return detectLine({
+					lines: [
+						{ startPoint, currentPoint: tr },
+						{ startPoint, currentPoint: bl },
+						{ startPoint: tr, currentPoint },
+						{ startPoint: bl, currentPoint }
+					],
+					mousePoint
+				});
+			}
+			case "ellipse": {
+				//https://www.geeksforgeeks.org/check-if-a-point-is-inside-outside-or-on-the-ellipse/#
+				const { x, y }: Point = center;
+				const { w, h }: Dim = currentDim;
+				let a, b, theta;
+
+				if (w > h) {
+					a = w / 2;
+					b = h / 2;
+					theta = 0; // Major axis is horizontal
+				} else {
+					a = h / 2;
+					b = w / 2;
+					theta = Math.PI / 2; // Major axis is vertical
+				}
+
+				const distance =
+					Math.pow((mousePoint.x - x) * Math.cos(theta) + (mousePoint.y - y) * Math.sin(theta), 2) /
+						Math.pow(a, 2) +
+					Math.pow((mousePoint.x - x) * Math.sin(theta) - (mousePoint.y - y) * Math.cos(theta), 2) /
+						Math.pow(b, 2);
+				return Math.abs(distance - 1) < CIRCLE_TOLERANCE;
+			}
+		}
+	})();
+
+	eltArr = flag ? [...eltArr, elt] : eltArr;
+
+	// only return one element
+	return { elts: eltArr.length ? eltArr[0] : null, action: "move" };
+};
+
+const detectBoundarySingleSelectedElement = ({
+	history,
+	selectedElements,
+	index,
+	mousePoint
+}: Rough.DetectBoundarySingleSelectedElement) => {
+	let eltArr: Rough.ActionHistory[] = [];
 	for (const elts of history.slice(0, index)) {
 		for (const elt of elts) {
-			if (!elt.startPoint || !elt.currentDim) continue;
-			const { action, startPoint, currentDim } = elt;
+			if (elt.action === "move") continue;
+			if (selectedElements.length && selectedElements.some(prevElt => prevElt.id === elt.id)) {
+				const { action } = elt;
+				const { startPoint, currentPoint } = calcPoints(elt);
 
-			const flag = (() => {
-				switch (action as Rough.ActionDraw) {
-					case "line": {
-						const { x, y }: Point = startPoint;
-						const currentPoint: Point = {
-							x: currentDim.w + x,
-							y: currentDim.h + y
-						};
-						return detectLine({
-							lines: [{ startPoint, endPoint: currentPoint }],
-							mousePoint
-						});
-					}
-					case "rect": {
-						const { x, y }: Point = startPoint;
-						const { w, h }: Dim = currentDim;
-						const tr: Point = { x: x + w, y };
-						const bl: Point = { x, y: y + h };
-						const br: Point = {
-							x: x + w,
-							y: y + h
-						};
-
-						return detectLine({
-							lines: [
-								{ startPoint, endPoint: tr },
-								{ startPoint, endPoint: bl },
-								{ startPoint: tr, endPoint: br },
-								{ startPoint: bl, endPoint: br }
-							],
-							mousePoint
-						});
-					}
-					case "ellipse": {
-						//https://www.geeksforgeeks.org/check-if-a-point-is-inside-outside-or-on-the-ellipse/#
-						const { x, y }: Point = startPoint;
-						const { w, h }: Dim = currentDim;
-						let a, b, theta;
-
-						if (w > h) {
-							a = w / 2;
-							b = h / 2;
-							theta = 0; // Major axis is horizontal
-						} else {
-							a = h / 2;
-							b = w / 2;
-							theta = Math.PI / 2; // Major axis is vertical
+				const flag = (() => {
+					switch (action as Rough.ActionDraw) {
+						case "line": {
+							return detectLine({
+								lines: [{ startPoint, currentPoint }],
+								mousePoint
+							});
 						}
-
-						const distance =
-							Math.pow(
-								(mousePoint.x - x) * Math.cos(theta) + (mousePoint.y - y) * Math.sin(theta),
-								2
-							) /
-								Math.pow(a, 2) +
-							Math.pow(
-								(mousePoint.x - x) * Math.sin(theta) - (mousePoint.y - y) * Math.cos(theta),
-								2
-							) /
-								Math.pow(b, 2);
-						return Math.abs(distance - 1) < CIRCLE_TOLERANCE;
+						case "rect": {
+							return detectInsideBox({ tl: startPoint, br: currentPoint, mousePoint });
+						}
+						case "ellipse": {
+							return detectInsideBox({ tl: startPoint, br: currentPoint, mousePoint });
+						}
 					}
-				}
-			})();
+				})();
 
-			if (flag) eltArr = [...eltArr, elt];
+				eltArr = flag ? [...eltArr, elt] : eltArr;
+			} else {
+				// use this detection if no elts in selectedElements or the elt isn't in selectElements
+				// later add conditional for detect non-transparent elements
+				const retVal = detectBoundaryTransparentNoSelectedElements({ elt, mousePoint });
+				eltArr = retVal.elts ? [...eltArr, retVal.elts] : eltArr;
+			}
 		}
 	}
 	// only return one element
 	return { elts: eltArr.length ? eltArr[0] : null, action: "move" };
 };
 
+const detectBoundaryMultiSelectedElements = ({
+	multiSelectBox,
+	selectedElements,
+	mousePoint
+}: Rough.DetectBoundaryMultiSelectedElements) => {
+	const flag = detectInsideBox({
+		tl: multiSelectBox.startPoint,
+		br: multiSelectBox.currentPoint,
+		mousePoint
+	});
+	// return selectElements if inside multi bounding box
+	return { elts: flag ? selectedElements : null, action: "move" };
+};
+
+const detectInsideBox = ({ tl, br, mousePoint }: DetectInsideBox) => {
+	if (
+		mousePoint.x >= tl.x - BOUNDING_OFFSET &&
+		mousePoint.x <= br.x + BOUNDING_OFFSET &&
+		mousePoint.y <= br.y + BOUNDING_OFFSET &&
+		mousePoint.y >= tl.y - BOUNDING_OFFSET
+	) {
+		return true;
+	}
+
+	return false;
+};
+
 const detectLine = ({ lines, mousePoint }: DetectLine) => {
 	let flag = false;
 
-	for (const { startPoint, endPoint } of lines) {
+	for (const { startPoint, currentPoint } of lines) {
 		const offset =
-			distance({ a: startPoint, b: endPoint }) -
-			(distance({ a: startPoint, b: mousePoint }) + distance({ a: endPoint, b: mousePoint }));
+			distance({ a: startPoint, b: currentPoint }) -
+			(distance({ a: startPoint, b: mousePoint }) + distance({ a: currentPoint, b: mousePoint }));
 
 		flag = flag || Math.abs(offset) < LINE_TOLERANCE;
 	}
