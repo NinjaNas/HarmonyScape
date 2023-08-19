@@ -14,7 +14,7 @@
   - Pan the canvas 'infinitely' using middle mouse
   - Zoom in/out the canvas relative to the mouse with ctrl+wheel
   - Scroll up and down the canvas
-  - Resizing the canvas
+  - Resize the canvas and persist elements
 - Drawing
   - Draw lines, rectangles, circles/ellipses
   - Switch between drawing tools
