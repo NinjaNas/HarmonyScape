@@ -84,7 +84,7 @@ declare namespace Rough {
 	};
 
 	type DrawProps = {
-		id: number;
+		id: string;
 		action: Rough.ActionDraw;
 		startPoint: Point;
 		currentDim: Dim;
@@ -124,7 +124,7 @@ declare namespace Rough {
 	};
 
 	type EditProps = {
-		id: number;
+		id: string;
 		action: "move";
 		options?: {
 			seed?: number;
