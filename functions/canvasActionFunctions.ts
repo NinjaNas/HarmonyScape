@@ -1,4 +1,5 @@
 import { Drawable } from "roughjs/bin/core";
+import { v4 as uuidv4 } from "uuid";
 import {
 	LINE_TOLERANCE,
 	CIRCLE_TOLERANCE,
@@ -39,7 +40,7 @@ export function draw({ history, action, rc, gen, startPoint, currentPoint, optio
 	rc.draw(drawable);
 	return [
 		{
-			id: history.reduce((currentCount, row) => currentCount + row.length, 0),
+			id: uuidv4(),
 			action,
 			startPoint,
 			currentDim,
