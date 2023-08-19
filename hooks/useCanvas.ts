@@ -83,24 +83,17 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			func: () => {
 				if (!selectedElements.length) return;
 
-				let minX;
-				let minY;
-				let maxX;
-				let maxY;
+				let minX = Infinity;
+				let minY = Infinity;
+				let maxX = -Infinity;
+				let maxY = -Infinity;
 
 				for (const prevElt of selectedElements) {
 					const e = calcPoints(prevElt);
-					if (!minX || !minY || !maxX || !maxY) {
-						minX = e.startPoint.x;
-						minY = e.startPoint.y;
-						maxX = e.currentPoint.x;
-						maxY = e.currentPoint.y;
-					} else {
-						minX = Math.min(minX, e.startPoint.x);
-						minY = Math.min(minY, e.startPoint.y);
-						maxX = Math.max(maxX, e.currentPoint.x);
-						maxY = Math.max(maxY, e.currentPoint.y);
-					}
+					minX = Math.min(minX, e.startPoint.x, e.currentPoint.x);
+					minY = Math.min(minY, e.startPoint.y, e.currentPoint.y);
+					maxX = Math.max(maxX, e.startPoint.x, e.currentPoint.x);
+					maxY = Math.max(maxY, e.startPoint.y, e.currentPoint.y);
 				}
 
 				if (!minX || !minY || !maxX || !maxY) return;
@@ -532,12 +525,11 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 					if (prevElt.action !== "move") {
 						// warning!!! prevElt is shallow, make sure calcPoints sends back unreferenced values
 						const e = calcPoints(prevElt);
-						if (
-							minX <= e.startPoint.x &&
-							minY <= e.startPoint.y &&
-							maxX >= e.currentPoint.x &&
-							maxY >= e.currentPoint.y
-						) {
+						const eMinX = Math.min(e.startPoint.x, e.currentPoint.x);
+						const eMaxX = Math.max(e.startPoint.x, e.currentPoint.x);
+						const eMinY = Math.min(e.startPoint.y, e.currentPoint.y);
+						const eMaxY = Math.max(e.startPoint.y, e.currentPoint.y);
+						if (minX <= eMinX && minY <= eMinY && maxX >= eMaxX && maxY >= eMaxY) {
 							// warning!!! prevElt is shallow, changing values in newSelectedElements will change history
 							newSelectedElements.push(prevElt);
 						}
@@ -592,13 +584,13 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 		]
 	);
 
-	// adjust coordinates so default startPoint is bottom left
+	// adjust coordinates so default startPoint is top left
 	const adjustCoords = useCallback(
 		logFn({
 			options: { name: "adjustCoords", tag: "Helper" },
 			func: (elts: Rough.ActionHistory[]) => {
 				for (const elt of elts) {
-					// force default startPoint to bottom left respectively
+					// force default startPoint to top left respectively
 					switch (elt.action as Rough.ActionDraw) {
 						case "line":
 							// need to allow y to be negative or positive

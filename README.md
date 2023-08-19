@@ -25,7 +25,7 @@
   - Selection and bounding box UI
   - Different ways of detecting if an element can be moved
     - By perimeter for transparent elements when no element is currently selected
-    - By entire bounding region when muliple elements are selected   
+    - By entire bounding region when muliple elements are selected
 - Shortcuts
   - Undo/Redo using shortcuts working for drawing, moving single and multiple shapes
 - Other
@@ -37,6 +37,7 @@
   - Resize shapes
   - Rotate shapes
 - Shortcuts
+  - Delete
   - Copy/Paste
 - Tools
   - Text
