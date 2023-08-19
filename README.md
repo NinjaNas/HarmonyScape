@@ -28,7 +28,6 @@
     - By entire bounding region when muliple elements are selected   
 - Shortcuts
   - Undo/Redo using shortcuts working for drawing, moving single and multiple shapes
- 
 - Other
   - Use a pretty custom info logger for development
 
