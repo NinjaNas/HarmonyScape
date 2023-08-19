@@ -52,13 +52,11 @@ export const detectBoundary = ({
 	history,
 	selectedElements,
 	multiSelectBox,
-	index,
 	mousePoint
 }: Rough.Select) => {
 	if (selectedElements.length <= 1) {
 		return detectBoundarySingleSelectedElement({
 			history,
-			index,
 			mousePoint,
 			selectedElements
 		});
@@ -137,11 +135,10 @@ const detectBoundaryTransparentNoSelectedElements = ({
 const detectBoundarySingleSelectedElement = ({
 	history,
 	selectedElements,
-	index,
 	mousePoint
 }: Rough.DetectBoundarySingleSelectedElement) => {
 	let eltArr: Rough.ActionHistory[] = [];
-	for (const elts of history.slice(0, index)) {
+	for (const elts of history) {
 		for (const elt of elts) {
 			if (elt.action === "move") continue;
 			if (selectedElements.length && selectedElements.some(prevElt => prevElt.id === elt.id)) {
@@ -334,6 +331,8 @@ const drawSelectionHelper = (
 	if (bl) {
 		drawCircleHelper(ctx, { x: bl.x - offset, y: bl.y + offset });
 	}
+
+	ctx.lineWidth = 1;
 };
 
 const drawCircleHelper = (ctx: CanvasRenderingContext2D, startPoint: Point) => {
@@ -345,13 +344,14 @@ const drawCircleHelper = (ctx: CanvasRenderingContext2D, startPoint: Point) => {
 };
 
 const drawBoxHelper = (ctx: CanvasRenderingContext2D, startPoint: Point, currentDim: Dim) => {
-	ctx.lineWidth = 0.7;
+	ctx.lineWidth = 1.5;
 	ctx.strokeRect(
 		startPoint.x - BOUNDING_OFFSET,
 		startPoint.y - BOUNDING_OFFSET,
 		currentDim.w + BOUNDING_OFFSET * 2,
 		currentDim.h + BOUNDING_OFFSET * 2
 	);
+	ctx.lineWidth = 1;
 };
 
 export const getRandomInt = (min: number, max: number) => {

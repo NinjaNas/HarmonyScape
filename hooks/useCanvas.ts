@@ -19,7 +19,8 @@ import {
 	ZOOM_OUT_FACTOR,
 	DELAY,
 	GEN,
-	GLOBAL_ZOOM
+	GLOBAL_ZOOM,
+	RESIZE_COLOR
 } from "@constants/canvasConstants";
 
 export const useCanvas = (onAction: { func: null | Rough.Action; type: string }) => {
@@ -46,6 +47,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 		startPoint: { x: 0, y: 0 },
 		currentPoint: { x: 0, y: 0 }
 	});
+	const currentMouseMultiSelectRef = useRef<null | Point>(null);
 	const currentMoveActionRef = useRef<{ [id: string]: Point }>({});
 	const startingPointRef = useRef<null | Point>(null);
 	const historyRef = useRef(history);
@@ -133,11 +135,10 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 		func: ({ point }: { point: Point }) => {
 			// null or multiple element array
 			const { elts, action } = (onAction.func as Rough.SelectFunc)({
-				history,
+				history: history.slice(0, index),
 				selectedElements,
 				multiSelectBox,
-				mousePoint: point,
-				index
+				mousePoint: point
 			});
 			if (elts) {
 				switch (action as Rough.SelectActions) {
@@ -321,12 +322,33 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 
 						roughRef.current.draw(drawable);
 					}
+				}
+				// draw bounding box on element
+				streamSelectActions();
 
-					streamSelectActions();
+				// draw temporary mouse selection box
+				if (isMultiSelect && startingPointRef.current && currentMouseMultiSelectRef.current) {
+					ctxRef.current.globalAlpha = 0.1;
+					ctxRef.current.fillStyle = RESIZE_COLOR;
+					ctxRef.current.fillRect(
+						startingPointRef.current.x,
+						startingPointRef.current.y,
+						currentMouseMultiSelectRef.current.x - startingPointRef.current.x,
+						currentMouseMultiSelectRef.current.y - startingPointRef.current.y
+					);
+					ctxRef.current.globalAlpha = 1;
+					ctxRef.current.lineWidth = 1.5;
+					ctxRef.current.strokeRect(
+						startingPointRef.current.x,
+						startingPointRef.current.y,
+						currentMouseMultiSelectRef.current.x - startingPointRef.current.x,
+						currentMouseMultiSelectRef.current.y - startingPointRef.current.y
+					);
+					ctxRef.current.lineWidth = 1;
 				}
 			}
 		}),
-		[history, index, origin.x, origin.y, scale, streamSelectActions]
+		[history, index, origin.x, origin.y, scale, streamSelectActions, isMultiSelect]
 	);
 
 	// Compute relative points in canvas (origin/scale)
@@ -399,7 +421,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			func: ({ startPoint, currentPoint }: Rough.Points) => {
 				currentDrawActionRef.current = [
 					...(onAction.func as Rough.DrawFunc)({
-						history,
+						history: history.slice(0, index),
 						action: onAction.type as Rough.ActionDraw,
 						rc: roughRef.current!,
 						ctx: ctxRef.current!,
@@ -505,7 +527,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			const minY = Math.min(startPoint.y, currentPoint.y);
 			const maxY = Math.max(startPoint.y, currentPoint.y);
 			let newSelectedElements: Rough.ActionHistory[] = [];
-			history.forEach(prevHistory =>
+			history.slice(0, index).forEach(prevHistory =>
 				prevHistory.forEach(prevElt => {
 					if (prevElt.action !== "move") {
 						// warning!!! prevElt is shallow, make sure calcPoints sends back unreferenced values
@@ -522,8 +544,11 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 					}
 				})
 			);
-			// set elements in selection
 
+			// pass currentPoint to ref to be used in streamActions
+			currentMouseMultiSelectRef.current = currentPoint;
+
+			// set elements in selection
 			setSelectedElements(newSelectedElements);
 		},
 		[history]
@@ -688,6 +713,9 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				// update so multiselect bounding box stays accurate
 				currentMultiSelectBoxRef.current = multiSelectBox;
 
+				// set null so temporary bounding box is reset
+				currentMouseMultiSelectRef.current = null;
+
 				// add current action to history
 				if (currentDrawActionRef.current) {
 					drawingSave();
@@ -742,11 +770,10 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 					const currentPoint = computePointInCanvas(e);
 					if (!currentPoint) return;
 					(e.target as HTMLElement).style.cursor = (onAction.func as Rough.SelectFunc)({
-						history,
+						history: history.slice(0, index),
 						selectedElements,
 						multiSelectBox,
-						mousePoint: currentPoint,
-						index
+						mousePoint: currentPoint
 					}).elts
 						? "move"
 						: "default";
@@ -887,7 +914,6 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				}
 			}
 		}),
-
 		[]
 	);
 
