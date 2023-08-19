@@ -16,20 +16,26 @@
   - Scroll up and down the canvas
   - Resizing the canvas
 - Drawing
-  - Draw lines, Rectangles, Circles/Ellipses
+  - Draw lines, rectangles, circles/ellipses
   - Switch between drawing tools
 - Selection
   - Move shapes with the selection tool
   - Move multiple shapes if shift+drag
+  - Drag multi-select
+  - Selection and bounding box UI
+  - Different ways of detecting if an element can be moved
+    - By perimeter for transparent elements when no element is currently selected
+    - By entire bounding region when muliple elements are selected   
 - Shortcuts
-  - Undo/Redo using shortcuts (working for drawing, moving single/multiple shape(s))
+  - Undo/Redo using shortcuts working for drawing, moving single and multiple shapes
+ 
+- Other
+  - Use a pretty custom info logger for development
 
 ## Upcoming
 
 - Selection
-  - Drag multi-select
   - Resize shapes
-    - Fixing selection bounding box
   - Rotate shapes
 - Shortcuts
   - Copy/Paste
