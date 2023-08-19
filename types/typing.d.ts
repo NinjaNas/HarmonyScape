@@ -101,7 +101,6 @@ declare namespace Rough {
 		history: Rough.ActionHistory[][];
 		selectedElements: Rough.ActionHistory[];
 		multiSelectBox: Rough.Points;
-		index: number;
 		mousePoint: Point;
 	};
 
@@ -115,7 +114,6 @@ declare namespace Rough {
 	type DetectBoundarySingleSelectedElement = {
 		history: Rough.ActionHistory[][];
 		selectedElements: Rough.ActionHistory[];
-		index: number;
 		mousePoint: Point;
 	};
 
