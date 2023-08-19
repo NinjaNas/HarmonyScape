@@ -56,7 +56,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 	log({ vals: "useCanvas.tsx", options: { tag: "Render" } });
 	log({
 		vals: [{ key: "size", val: index }, history],
-		options: { tag: "History", log: true, spread: false }
+		options: { tag: "History", log: false, spread: false }
 	});
 	log({
 		vals: [
@@ -74,7 +74,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				val: multiSelectBox.currentPoint
 			}
 		],
-		options: { tag: "Selected", spread: false, log: true }
+		options: { tag: "Selected", spread: false, log: false }
 	});
 
 	const calcBoundingBox = useCallback(
@@ -466,7 +466,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 
 	const movingObj = useCallback(
 		logFn({
-			options: { name: "movingObj", tag: "Helper", log: true },
+			options: { name: "movingObj", tag: "Helper", log: false },
 			func: ({ currentPoint }: Rough.Points) => {
 				if (!startingPointRef.current) return;
 				let newHistory = [...history];
@@ -651,7 +651,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 
 	const movingSave = useCallback(
 		logFn({
-			options: { name: "movingSave", tag: "Helper", log: true },
+			options: { name: "movingSave", tag: "Helper", log: false },
 			func: () => {
 				// move elements, go through all selectedElements, store necessary props in history
 				if (!currentMoveActionRef.current) return;
