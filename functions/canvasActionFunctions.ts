@@ -9,10 +9,11 @@ import {
 	RESIZE_RADIUS,
 	RESIZE_COLOR,
 	RESIZE_FILL_COLOR,
-	BOUNDING_OFFSET
+	BOUNDING_OFFSET,
+	POINT_TOLERANCE
 } from "@constants/canvasConstants";
 
-export function draw({ history, action, rc, gen, startPoint, currentPoint, options }: Rough.Draw) {
+export function draw({ action, rc, gen, startPoint, currentPoint, options }: Rough.Draw) {
 	const dim: Dim = {
 		w: currentPoint.x - startPoint.x,
 		h: currentPoint.y - startPoint.y
@@ -53,13 +54,21 @@ export const detectBoundary = ({
 	history,
 	selectedElements,
 	multiSelectBox,
-	mousePoint
+	mousePoint,
+	isShift
 }: Rough.Select) => {
 	if (selectedElements.length <= 1) {
 		return detectBoundarySingleSelectedElement({
 			history,
 			mousePoint,
 			selectedElements
+		});
+	} else if (isShift) {
+		return detectBoundaryAndSelectionShift({
+			history,
+			mousePoint,
+			selectedElements,
+			multiSelectBox
 		});
 	} else {
 		return detectBoundaryMultiSelectedElements({
@@ -75,6 +84,7 @@ const detectBoundaryTransparentNoSelectedElements = ({
 	mousePoint
 }: Rough.DetectBoundaryTransparentNoSelectedElements) => {
 	let eltArr: Rough.ActionHistory[] = [];
+	let actionFlag: Rough.SelectActions = "move";
 	// center is used for calculating the ellipse
 	const { action, startPoint: center, currentDim } = elt;
 	const { startPoint, currentPoint } = calcPoints(elt);
@@ -82,10 +92,26 @@ const detectBoundaryTransparentNoSelectedElements = ({
 	const flag = (() => {
 		switch (action as Rough.ActionDraw) {
 			case "line": {
-				return detectLine({
-					lines: [{ startPoint, currentPoint }],
+				const resizeStartPoint = detectPoint({
+					point: startPoint,
 					mousePoint
 				});
+				const resizeCurrentPoint = detectPoint({
+					point: currentPoint,
+					mousePoint
+				});
+				if (resizeStartPoint) {
+					actionFlag = "resize";
+					return resizeStartPoint;
+				} else if (resizeCurrentPoint) {
+					actionFlag = "resize";
+					return resizeCurrentPoint;
+				} else {
+					return detectLine({
+						lines: [{ startPoint, currentPoint }],
+						mousePoint
+					});
+				}
 			}
 			case "rect": {
 				const tr: Point = { x: currentPoint.x, y: startPoint.y };
@@ -130,7 +156,7 @@ const detectBoundaryTransparentNoSelectedElements = ({
 	eltArr = flag ? [...eltArr, elt] : eltArr;
 
 	// only return one element
-	return { elts: eltArr.length ? eltArr[0] : null, action: "move" };
+	return { elts: eltArr.length ? eltArr[0] : null, action: actionFlag };
 };
 
 const detectBoundarySingleSelectedElement = ({
@@ -139,6 +165,7 @@ const detectBoundarySingleSelectedElement = ({
 	mousePoint
 }: Rough.DetectBoundarySingleSelectedElement) => {
 	let eltArr: Rough.ActionHistory[] = [];
+	let actionFlag: Rough.SelectActions = "move";
 	for (const elts of history) {
 		for (const elt of elts) {
 			if (elt.action === "move") continue;
@@ -149,10 +176,26 @@ const detectBoundarySingleSelectedElement = ({
 				const flag = (() => {
 					switch (action as Rough.ActionDraw) {
 						case "line": {
-							return detectLine({
-								lines: [{ startPoint, currentPoint }],
+							const resizeStartPoint = detectPoint({
+								point: startPoint,
 								mousePoint
 							});
+							const resizeCurrentPoint = detectPoint({
+								point: currentPoint,
+								mousePoint
+							});
+							if (resizeStartPoint) {
+								actionFlag = "resize";
+								return resizeStartPoint;
+							} else if (resizeCurrentPoint) {
+								actionFlag = "resize";
+								return resizeCurrentPoint;
+							} else {
+								return detectLine({
+									lines: [{ startPoint, currentPoint }],
+									mousePoint
+								});
+							}
 						}
 						case "rect": {
 							return detectInsideBox({ tl: startPoint, br: currentPoint, mousePoint });
@@ -173,7 +216,7 @@ const detectBoundarySingleSelectedElement = ({
 		}
 	}
 	// only return one element
-	return { elts: eltArr.length ? eltArr[0] : null, action: "move" };
+	return { elts: eltArr.length ? [eltArr[0]] : null, action: actionFlag };
 };
 
 const detectBoundaryMultiSelectedElements = ({
@@ -188,6 +231,33 @@ const detectBoundaryMultiSelectedElements = ({
 	});
 	// return selectElements if inside multi bounding box
 	return { elts: flag ? selectedElements : null, action: "move" };
+};
+
+const detectBoundaryAndSelectionShift = ({
+	history,
+	mousePoint,
+	selectedElements,
+	multiSelectBox
+}: Rough.DetectBoundaryAndSelectionShift) => {
+	const detectSingle = detectBoundarySingleSelectedElement({
+		history,
+		mousePoint,
+		selectedElements
+	});
+
+	const detectMulti = detectBoundaryMultiSelectedElements({
+		multiSelectBox,
+		mousePoint,
+		selectedElements
+	});
+
+	if (detectMulti.elts && detectSingle.elts) {
+		return { elts: [...detectMulti.elts, ...detectSingle.elts], action: "move" };
+	} else if (detectMulti.elts) {
+		return detectMulti;
+	} else {
+		return detectSingle;
+	}
 };
 
 const detectInsideBox = ({ tl, br, mousePoint }: DetectInsideBox) => {
@@ -213,6 +283,15 @@ const detectLine = ({ lines, mousePoint }: DetectLine) => {
 
 		flag = flag || Math.abs(offset) < LINE_TOLERANCE;
 	}
+	return flag;
+};
+
+const detectPoint = ({ point, mousePoint }: DetectPoint) => {
+	let flag = false;
+
+	const offset = distance({ a: point, b: mousePoint });
+	flag = Math.abs(offset) < POINT_TOLERANCE;
+
 	return flag;
 };
 

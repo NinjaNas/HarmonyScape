@@ -45,6 +45,11 @@ type DetectLine = {
 	mousePoint: Point;
 };
 
+type DetectPoint = {
+	point: Point;
+	mousePoint: Point;
+};
+
 type DetectInsideBox = {
 	tl: Point;
 	br: Point;
@@ -67,7 +72,6 @@ declare namespace Rough {
 	type DrawFunc = ({}: Draw) => DrawProps[];
 
 	type Draw = {
-		history: Rough.ActionHistory[][];
 		action: Rough.ActionDraw;
 		rc: import("roughjs/bin/canvas").RoughCanvas;
 		ctx?: CanvasRenderingContext2D;
@@ -102,9 +106,10 @@ declare namespace Rough {
 		selectedElements: Rough.ActionHistory[];
 		multiSelectBox: Rough.Points;
 		mousePoint: Point;
+		isShift: boolean;
 	};
 
-	type SelectProps = { elts: null | Rough.DrawProps; action: type };
+	type SelectProps = { elts: null | Rough.DrawProps[]; action: type };
 
 	type DetectBoundaryTransparentNoSelectedElements = {
 		elt: Rough.DrawProps;
@@ -118,6 +123,13 @@ declare namespace Rough {
 	};
 
 	type DetectBoundaryMultiSelectedElements = {
+		selectedElements: Rough.ActionHistory[];
+		multiSelectBox: Rough.Points;
+		mousePoint: Point;
+	};
+
+	type DetectBoundaryAndSelectionShift = {
+		history: Rough.ActionHistory[][];
 		selectedElements: Rough.ActionHistory[];
 		multiSelectBox: Rough.Points;
 		mousePoint: Point;

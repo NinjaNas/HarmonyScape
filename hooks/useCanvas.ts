@@ -32,6 +32,7 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 	const [isDrawing, setIsDrawing] = useState<boolean>(false);
 	const [isPanning, setIsPanning] = useState<boolean>(false);
 	const [isMoving, setIsMoving] = useState<boolean>(false);
+	const [isResize, setIsResize] = useState<boolean>(false);
 	const [isMultiSelect, setIsMultiSelect] = useState<boolean>(false);
 	const [selectedElements, setSelectedElements] = useState<Rough.ActionHistory[]>([]);
 	const [multiSelectBox, setMultiSelectBox] = useState<Rough.Points>({
@@ -64,15 +65,8 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			selectedElements,
 			{ key: "isMulti", val: isMultiSelect },
 			{ key: "isMove", val: isMoving },
-			{ key: "moveRef", val: currentMoveActionRef.current },
-			{
-				key: "multiStart",
-				val: multiSelectBox.startPoint
-			},
-			{
-				key: "multiCurrent",
-				val: multiSelectBox.currentPoint
-			}
+			{ key: "isResize", val: isResize },
+			{ key: "isShift", val: isShift }
 		],
 		options: { tag: "Selected", spread: false, log: false }
 	});
@@ -131,24 +125,30 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				history: history.slice(0, index),
 				selectedElements,
 				multiSelectBox,
-				mousePoint: point
+				mousePoint: point,
+				isShift
 			});
 			if (elts) {
 				switch (action as Rough.SelectActions) {
 					case "move":
 						setIsMultiSelect(false);
-						// if shiftKey unique selectElements are added, else add one elt
-						if (isShift) {
-							setSelectedElements(prevElts => {
-								const ids = new Set(prevElts.map(i => i.id));
-								return [...prevElts, ...[elts!].filter(i => !ids.has(i.id))];
-							});
-						} else if (elts && selectedElements.length > 1) {
-						} else {
-							setSelectedElements([elts!]);
-						}
 						setIsMoving(true);
 						break;
+					case "resize":
+						// setIsResize(true);
+						break;
+					case "rotate":
+						break;
+				}
+				// if shiftKey unique selectElements are added, else add one elt
+				if (isShift) {
+					setSelectedElements(prevElts => {
+						const ids = new Set(prevElts.map(i => i.id));
+						return [...prevElts, ...elts.filter(i => !ids.has(i.id))];
+					});
+				} else if (elts && selectedElements.length > 1) {
+				} else {
+					setSelectedElements(elts);
 				}
 			} else if (!elts && !isShift) {
 				setSelectedElements([]);
@@ -414,7 +414,6 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			func: ({ startPoint, currentPoint }: Rough.Points) => {
 				currentDrawActionRef.current = [
 					...(onAction.func as Rough.DrawFunc)({
-						history: history.slice(0, index),
 						action: onAction.type as Rough.ActionDraw,
 						rc: roughRef.current!,
 						ctx: ctxRef.current!,
@@ -761,16 +760,34 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 				if (onAction.type === "select") {
 					const currentPoint = computePointInCanvas(e);
 					if (!currentPoint) return;
-					(e.target as HTMLElement).style.cursor = (onAction.func as Rough.SelectFunc)({
+
+					const { elts, action } = (onAction.func as Rough.SelectFunc)({
 						history: history.slice(0, index),
 						selectedElements,
 						multiSelectBox,
-						mousePoint: currentPoint
-					}).elts
-						? "move"
-						: "default";
-				} else {
-					(e.target as HTMLElement).style.cursor = "default";
+						mousePoint: currentPoint,
+						isShift
+					});
+
+					if (!elts && !isPanning) {
+						(e.target as HTMLElement).style.cursor = "default";
+					} else if (isPanning) {
+						(e.target as HTMLElement).style.cursor = "grabbing";
+					} else if (elts) {
+						(e.target as HTMLElement).style.cursor = (() => {
+							switch (action as Rough.SelectActions) {
+								case "move":
+									return "move";
+								case "resize":
+									// need to specify the element later
+									return "pointer";
+								case "rotate":
+									return "grab";
+							}
+						})();
+					} else {
+						(e.target as HTMLElement).style.cursor = "default";
+					}
 				}
 			}
 		}),
@@ -781,7 +798,9 @@ export const useCanvas = (onAction: { func: null | Rough.Action; type: string })
 			onAction.func,
 			onAction.type,
 			selectedElements,
-			multiSelectBox
+			multiSelectBox,
+			isShift,
+			isPanning
 		]
 	);
 
