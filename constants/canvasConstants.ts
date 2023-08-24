@@ -7,6 +7,7 @@ const MAX_SCALE: number = 5;
 const ZOOM_OUT_FACTOR: number = 0.9;
 const ZOOM_IN_FACTOR: number = 1.1;
 const LINE_TOLERANCE: number = 1;
+const POINT_TOLERANCE: number = 5;
 const CIRCLE_TOLERANCE: number = 0.07;
 const DELAY: number = 100;
 const RESIZE_RADIUS: number = 5;
@@ -24,6 +25,7 @@ export {
 	ZOOM_OUT_FACTOR,
 	ZOOM_IN_FACTOR,
 	LINE_TOLERANCE,
+	POINT_TOLERANCE,
 	CIRCLE_TOLERANCE,
 	DELAY,
 	GEN,
